@@ -1,7 +1,7 @@
 # -*- perl -*-
 # w3http.pm	--- send http requests, janl's 12" mix for w3mir
 #
-$VERSION=1.0.17;
+$VERSION=1.0.18;
 #
 # This implements http/1.0 requests.  We'll have problems with http/0.9
 # This is in no way specific to w3mir.
@@ -35,7 +35,6 @@ $VERSION=1.0.17;
 # $w3http::result: The numerical http result code
 # $w3http::restext: The english(?) http result
 # $w3http::header: The http header returned.
-# $w3http::plaintext: 1 if this doc is non-content-encoded text/*
 # $w3http::plaintexthtml: 1 if this doc is non-content-encoded text/html
 #	(as opposed to content-encoding: compressed content-type: text/html
 #       which needs decompression before we can inspect the html) 
@@ -107,6 +106,8 @@ $VERSION=1.0.17;
 #			value (unknown) (also Greg L.) -> 1.0.15
 #     janl 01/22/97 -- Proxy authentication as outlined by Christian Geuer
 #     janl 02/20/97 -- Complex 'content-type' headers handled. -> 1.0.17
+#     janl 04/20/97 -- Only newline convert text/html, everything else is
+#			handled as binary.
 
 package w3http;
 
@@ -126,7 +127,7 @@ use strict;
 use vars qw($GET $HEAD $GETURL $HEADURL $IFMOD $IFMODF $AUTHORIZ $REFERER);
 use vars qw($SAVEBIN $ACCEPT $NOUSER $FREEHEAD $agent $version $timeout);
 use vars qw($debug $convert $proxyserver $proxyport $xfbytes $headbytes);
-use vars qw($verbose $result $restext $header $document $plaintext);
+use vars qw($verbose $result $restext $header $document);
 use vars qw($plaintexthtml %headval $progress $doclen $proxyuser);
 use vars qw($proxypasswd);
 
@@ -206,7 +207,7 @@ sub query {
   
   my($host,$port,$request,$query,$method,$inp,$linp,$saveto,$save,$arg);
   my($start,$wantbytes,$thataddr,$err,$headb,$tmpf,$ldoc,$nouser,$q,$accept);
-  my($origreq,$req_o);
+  my($origreq,$req_o,$plaintext);
   
   # This is a internal error reply code.
   $result=99;
@@ -471,8 +472,8 @@ sub query {
   
   if ($result==200) {
     
-    # Save this to a file, or not?  Never save text files.
-    if ($saveto && !$plaintext) {
+    # Save this to a file, or not?  Never save html files.
+    if ($saveto && !$plaintexthtml) {
       
       # We're going to save this document directly into a file.  This
       # stresses the VM less when getting the large binares so often
@@ -571,18 +572,23 @@ sub query {
       # for transfers thru proxy servers.
     }
     
-    # If this is a non-encoded text file and we're supposed to
-    # convert foreign newlines then we do it.  It would be faster
-    # to do this with each chunk of input in the input loop, but
-    # this gives us two problems:
+    # If this is a non-encoded text file and we're supposed to convert
+    # foreign newlines then we do it. It would be faster to do this
+    # with each chunk of input in the input loop, but this gives us
+    # two problems:
     # - A \r\n newline could be split into two chunks.  Thus escaping
     #   newline conversion.
     # - It messes up the received bytes accounting rather badly.
-    if ($convert && $plaintext) {
-      # Change non unix newlines to unix newlines. bare \r is
-      # known from macintosh (they hadta be different didn't
-      # they?), \r\n is known as 'network format' and from
-      # numerous systems, among them ms-dos.
+    #
+    # This used to be a test for $plaintext, the problem is that too
+    # many documents were typed as text/plain and so we corrupted
+    # binary files. This is bad. So now we're more paranoid about it:
+    # Only HTML gets converted.
+    if ($convert && $plaintexthtml) {
+      # Change non unix newlines to unix newlines. bare \r is known
+      # from macintosh (they hadta be different didn't they?), \r\n is
+      # known as 'network format' and from numerous systems, among
+      # them ms-dos.
       $document =~ s~\r~\n~g unless $document =~ s~\r\n~\n~g;
       warn "Newlines converted(?)\n" if $debug;
     }

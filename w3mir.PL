@@ -225,6 +225,7 @@ use lib '/hom/janl/lib/perl';
 #		  -- 1.0pre3
 #   janl 18/03/98 -- Version 1.0 is released
 #   janl 09/04/98 -- Added feature so user can disable newline conversion
+#   janl 20/04/98 -- Only convert newlines in HTML files. -> 1.0.2
 #
 # Variable name discipline:
 # - remote, umodified URL.  Variables prefixed 'rum_'
@@ -303,8 +304,8 @@ my $fixopen=0;			# Fixup files open?
 my $indexname='index.html';
 
 my $VERSION;
-$VERSION='1.0.1';
-$w3http::agent = my $w3mir_agent = "w3mir/$VERSION-11-4-1998";
+$VERSION='1.0.2';
+$w3http::agent = my $w3mir_agent = "w3mir/$VERSION-20-4-1998";
 my $iref='(commandline)';	# Initial referer
 
 # Derived settings	
@@ -791,7 +792,7 @@ sub get_document {
 #    print "plaintext: ",$w3http::plaintext,"\n";
 
     $page_ref=\$w3http::document 
-      if !defined($page_ref) && $w3http::plaintext;
+      if !defined($page_ref) && $w3http::plaintexthtml;
 
     if ($w3http::plaintexthtml) {
       # ark: this is where I want to do my changes to the page strip
@@ -1470,13 +1471,13 @@ sub write_page {
 
 #  confess("\n\$page_ref undefined") if !defined($page_ref);
   
-  if ($w3http::plaintext) {
+  if ($w3http::plaintexthtml) {
     # I have it in memory
     if ($s==0) {
       print STDERR ", saving" if $verb>0;
 
       while (-d $lf_name) {
-	# This will run once, maybe twize, $fiddled will be canged the
+	# This will run once, maybe twice, $fiddled will be canged the
 	# first time
 	if (exists($fiddled{$lf_name})) {
 	  warn "Cannot save $lf_name, there is a directory in the way\n";
@@ -1493,7 +1494,10 @@ sub write_page {
 	warn "\nw3mir: can't open $lf_name for writing: $!\n";
 	return;
       }
-      binmode PAGE if !$w3http::plaintext || !$convertnl;
+      if (!$convertnl) {
+	binmode PAGE;
+	warn "BINMODE\n" if $debug;
+      }
       if ($$page_ref ne '') {
 	print PAGE $$page_ref || die "w3mir: Error writing $lf_name: $!\n";
       }
