@@ -216,6 +216,8 @@ use lib '/hom/janl/lib/perl';
 #		     this is now handled.
 #   janl 11/01/98 -- PDF files with no URLs does not cause warnings now.
 #		  -- Close REFERERS and REDIRECTS before calling w3mfix
+#   janl 22/01/98 -- Proxy authentication as outlined by Christian Geuer
+#   janl 04/02/98 -- Version 1
 #
 # Variable name discipline:
 # - remote, umodified URL.  Variables prefixed 'rum_'
@@ -287,14 +289,15 @@ my %nodelete=();		# Files that should not be deleted
 
 # Fixup related things
 my $fixrc='';			# Name of w3mfix config file
-my $fixup=0;			# Do things needed to run fixup
+my $fixup=1;			# Do things needed to run fixup
 my $runfix=0;			# Run w3mfix for user?
+my $fixopen=0;			# Fixup files open?
 
 my $indexname='index.html';
 
 my $VERSION;
-$VERSION='0.99b3';
-$w3http::agent = my $w3mir_agent = "w3mir/$VERSION-16-1-1998";
+$VERSION='1.0pre1';
+$w3http::agent = my $w3mir_agent = "w3mir/$VERSION-22-1-1998";
 my $iref='(commandline)';	# Initial referer
 
 # Derived settings	
@@ -412,6 +415,10 @@ if ($chdirto) {
   chdir($chdirto) || 
     die "w3mir: Can't change working directory to '$chdirto': $!\n";
 }
+
+$SIG{'INT'}=sub { print STDERR "\nCaught SIGINT!\n"; exit 1; };
+$SIG{'QUIT'}=sub { print STDERR "\nCaught SIGQUIT!\n"; exit 1; };
+$SIG{'HUP'}=sub { print STDERR "\nCaught SIGHUP!\n"; exit 1; };
 
 &open_fixup if $fixup;
 
@@ -637,6 +644,9 @@ sub get_document {
 
     # Does the server want authorization for this file?  $www_auth is
     # only set if authentication was requested the first time around.
+
+    # For testing:
+    # $www_auth='Basic realm="foo"';
 
     if ($www_auth) {
       my($authdata,$method,$realm);
@@ -910,10 +920,19 @@ sub get_document {
     return ();
   }
 
+  if ($w3http::result==407) {
+    # Proxy authentication requested
+    die "Proxy server requests authentication but failed to return the\n".
+      "REQUIRED Proxy-Authenticate header for this condition\n"
+	unless exists($w3http::headval{'proxy-authenticate'});
+
+    die "Proxy authentication is required for ".$w3http::headval{'proxy-authenticate'}."\n";
+  }
+
   if ($w3http::result==401) {
     # A www-authenticate reply header should acompany a 401 message.
     if (!exists($w3http::headval{'www-authenticate'})) {
-      warn "w3mir: Server indicated authentication failude but gave no www-authenticate reply\n";
+      warn "w3mir: Server indicated authentication failure but gave no www-authenticate reply\n";
       $rum_urlstat{$rum_url_o->as_string}=$NEVERMIND;
     } else {
       # Unauthorized
@@ -1152,12 +1171,17 @@ sub open_fixup {
 
   open(REFERERS,"> $reffile") ||
     die "Could not open $reffile for writing: $!\n";
+
+  $fixopen=1;
+  eval 'END { close_fixup; }';
 }
 
 
 sub close_fixup {
   # Close the fixup data files.  In the case of the referer file also
   # write the entire content
+
+  return unless $fixopen;
 
   my $referer;
 
@@ -1167,6 +1191,7 @@ sub close_fixup {
 
   close(REFERERS) || warn "Error closing referers file: $!\n";
   close(REDIRS) || warn "Error closing redirects file: $!\n";
+  $fixopen=0;
 }
 
 
@@ -1845,6 +1870,8 @@ sub parse_cfg_file {
       if ( $key eq 'file-disposition' );
     $verbose=nway($value,'quiet','brief','chatty')-1,next
       if ( $key eq 'verbosity' );
+    $w3http::proxyuser=$value if $key eq 'http-proxy-user';
+    $w3http::proxypasswd=$value if $key eq 'http-proxy-passwd';
 
     if ( $key eq 'cd' ) {
       $chdirto=$value;
@@ -1876,6 +1903,7 @@ sub parse_cfg_file {
       }
       $cache_header=($pragma?'Pragma: ':'Cache-control: ').join(', ',@popts);
     }
+
 
     if ($key eq 'url') {
       my ($rum_url_o,$lf_dir,$rum_reurl,$rum_rebase);
@@ -2030,7 +2058,7 @@ sub parse_cfg_file {
     if ($authserver && $authrealm && $authuser && $authpasswd) {
       $authdata{$authserver}{$authrealm}=$authuser.":".$authpasswd;
       print "Authentication for $authserver/$authrealm is ".
-	"$authuser/$authpasswd\n";
+	"$authuser/$authpasswd\n" if $verbose>=0;
       # exit;
       # Invalidate tmp vars
       $authserver=$authrealm=$authuser=$authpasswd=undef;
@@ -2083,18 +2111,25 @@ sub parse_cfg_file {
 
       $fixrc="$file";
       # warn "Fixrc: $fixrc\n";
-      $fixup=1;
 
       my($val,$nval);
       foreach $val (split(/\s*,\s*/,lc $value)) {
-	$nval=nway($val,'on','run','noindex');
+	$nval=nway($val,'on','run','noindex','off');
 	$runfix=1,next if $nval==1;
+	# Disable fixup
+	$fixup=0,next if $nval==3;
 	# Ignore everyting else
       }
     }
 
   }
   close(CFGF);
+
+  if (defined($w3http::proxypasswd) && $w3http::proxyuser) {
+    warn "Proxy authentication: ".$w3http::proxyuser.":".
+      $w3http::proxypasswd."\n" if $verbose>=0;
+  }
+
 }
 
 
@@ -2227,7 +2262,8 @@ sub usage {
 ';
 }
 __END__
-# -*- perl -*-
+# -*- perl -*- There must be a blank line here
+
 =head1 NAME
 
 w3mir - all purpose HTTP-copying and mirroring tool
@@ -2237,7 +2273,6 @@ w3mir - all purpose HTTP-copying and mirroring tool
 B<w3mir> [B<options>] [I<HTTP-URL>]
 
 B<w3mir> B<-B> [B<options>] <I<HTTP-URLS>>
-
 
 B<w3mir> is a all purpose HTTP copying and mirroring tool.  The
 main focus of B<w3mir> is to create and maintain a browsable copy of
@@ -2469,10 +2504,12 @@ set right.
 =item B<-agent> I<agent>
 
 Set the HTTP User-Agent fields value.  Some servers will serve
-different documents according to the WWW browsers capabilities.  B<w3mir>
-normally has B<w3mir>/I<version> in this header field.  Netscape uses
-things like B<Mozilla/3.01 (X11; I; Linux 2.0.30 i586)> and MSIE uses
-things like B<Mozilla/2.0 (compatible; MSIE 3.02; Windows NT)>.
+different documents according to the WWW browsers capabilities.
+B<w3mir> normally has B<w3mir>/I<version> in this header field.
+Netscape uses things like B<Mozilla/3.01 (X11; I; Linux 2.0.30 i586)>
+and MSIE uses things like B<Mozilla/2.0 (compatible; MSIE 3.02;
+Windows NT)> (remember to enclose agent strings with spaces in with
+double quotes ("))
 
 =item B<-lc>
 
@@ -2781,12 +2818,22 @@ code so consider not using it, ever.
 
 see the B<-P> switch.
 
+=item HTTP-Proxy-user: I<username>
+
+=item HTTP-Proxy-passwd: I<password>
+
+These two are is used to activate authentication with the proxy
+server.  L<w3mir> only supports I<basic> proxy autentication, and is
+quite simpleminded about it, if proxy authentication is on L<w3mir>
+will always give it to the proxy.  The domain concept is not supported
+with proxy-authentication.
+
 =item Proxy-Options: I<no-pragma> | I<revalidate> | I<refresh> | I<no-store>
 
 Set proxy options.  There are two ways to pass proxy options, HTTP/1.0
 compatible and HTTP/1.1 compatible.  Newer proxy-servers will
 understand the 1.1 way as well as 1.0.  With old proxy-servers only
-the 1.0 way will work.  w3mir will prefer the 1.0 way.
+the 1.0 way will work.  L<w3mir> will prefer the 1.0 way.
 
 The only 1.0 compatible proxy-option is I<refresh>, it corresponds to
 the B<-pflush> option and forces the proxy server to pass the request
@@ -2806,6 +2853,8 @@ I<no-store> forbids the proxy from storing the document in other than
 in transient storage.  This can be used when transferring sensitive
 documents, but is by no means any warranty that the document can't be
 found on any storage device on the proxy-server after the transfer.
+Cryptography, if legal in your contry, is the solution if you want the
+contents to be secret.
 
 I<refresh> corresponds to the HTTP/1.0 header I<Pragma: no-cache> or
 the identical HTTP/1.1 I<Cache-control> option.  I<revalidate> and
@@ -2829,7 +2878,9 @@ I<domain>.
 
 Give the server and port, and the belonging realm (making a domain)
 that the following authentication data holds for.  You may specify "*"
-wildcard for either of I<server:port> and I<realm>.
+wildcard for either of I<server:port> and I<realm>, this will work
+well if you only have one usernme and password on all the servers
+mirrored.
 
 =item Auth-User: I<user>
 
@@ -2930,14 +2981,14 @@ time
  w3mir http://sunsite.unc.edu/Dave/Dr-Fun/latest.jpg
 
 =item * Recursively fetch everything on the Star Wars site, remove
-that are no longer at the server from the mirror
+what is no longer at the server from the mirror:
 
  w3mir -R -r http://www.starwars.com/
 
 =item * Fetch the contents of the Sega site through a proxy, pausing
-for 0 seconds between each document
+for 30 seconds between each document
 
- w3mir -r -p 0 -P www.foo.org:4321 http://www.sega.com/
+ w3mir -r -p 30 -P www.foo.org:4321 http://www.sega.com/
 
 =item * Do everything according to F<w3mir.cfg>
 
@@ -3005,9 +3056,9 @@ for 0 seconds between each document
 
 =item Apply
 
-As I said earlier, B<Apply> has not been used for Real Work yet.  But
-B<Apply> I<could>, be used to map all web servers at the university of
-Oslo inside the scope of retrieval very easily:
+As I said earlier, B<Apply> has not been used for Real Work yet, that
+I know of.  But B<Apply> I<could>, be used to map all web servers at
+the university of Oslo inside the scope of retrieval very easily:
 
   # Start at the main server
   URL: http://www.uio.no/

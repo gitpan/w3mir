@@ -1,6 +1,6 @@
 # -*- perl -*-
 # w3http.pm	--- send http requests, janl's 12" mix for w3mir
-#	version 1.0.15
+#	version 1.0.16
 #
 # This implements http/1.0 requests.  We'll have problems with http/0.9
 # This is in no way specific to w3mir.
@@ -57,6 +57,8 @@
 #	The default is to do it.
 # $w3http::proxyserver: The name of the proxyserver to use.
 # $w3http::proxyport: The port of the proxyserver to use. 0 if no proxyserver.
+# $w3http::proxyuser: If this is set proxy authentication will be used.
+# $w3http::proxypasswd: The password for proxy authentication
 #
 # Things gotten from main:
 # - $main::win32: 1 if win32 restrictions apply to this system
@@ -100,6 +102,7 @@
 #			Greg Lindhorst (gregli@microsoft.com)
 #                   -- whoami does not exist on win32, hardwire a default
 #			value (unknown) (also Greg L.) -> 1.0.15
+#     janl 01/22/97 -- Proxy authentication as outlined by Christian Geuer
 
 package w3http;
 
@@ -120,7 +123,8 @@ use vars qw($GET $HEAD $GETURL $HEADURL $IFMOD $IFMODF $AUTHORIZ $REFERER);
 use vars qw($SAVEBIN $ACCEPT $NOUSER $FREEHEAD $agent $version $timeout);
 use vars qw($debug $convert $proxyserver $proxyport $xfbytes $headbytes);
 use vars qw($verbose $result $restext $header $document $plaintext);
-use vars qw($plaintexthtml %headval $progress $doclen);
+use vars qw($plaintexthtml %headval $progress $doclen $proxyuser);
+use vars qw($proxypasswd);
 
 my $hasAlarm;   # Win32 does not have any alarm
 my $chime;	# Has the alarm gone off yet?
@@ -163,6 +167,8 @@ $debug  = 0;			# Debuging output?
 $convert= 1;			# Convert newlines of text docs to local format
 $proxyserver='';		# Proxy server.
 $proxyport=0;			# Proxy server port. 0 if no proxy.
+$proxyuser='';			# Username for proxy authentication
+$proxypasswd='';		# Password for proxy authentication
 $xfbytes=0;			# 0 bytes transfered, cumulative
 $headbytes=0;			# 0 bytes of headers, cumulative
 $doclen=0;			# 0 bytes in doc, pr. document
@@ -261,9 +267,8 @@ sub query {
     } elsif ($arg == $IFMODF) {
       $query.='If-Modified-Since: '.&last_modified(shift).$nl;
     } elsif ($arg == $AUTHORIZ) {
-      # base64 encode user:password string
+      # Demand-load MIME::Base64
       if (!defined(&MIME::Base64::encode)) {
-	my $worked = 0;
 	eval "use MIME::Base64;";
 	die "w3http: Could not load MIME::Base64 module necessary for authentication\n"
 	  unless defined(&MIME::Base64::encode);
@@ -290,15 +295,32 @@ sub query {
 
   $accept='Accept: */*'.$nl unless $accept;
 
-  $query.='User-Agent: '.$agent.$nl.$accept.$nl;
-  
-  print STDERR "\nQUERY:\n",$query,"---\n" if $debug>=2;
-  
-  # If we're using proxy then set up the below code.
   if ($proxyport) {
+    # Use proxy instead of originserver
     $host=$proxyserver;
     $port=$proxyport;
+
+    # Add authentication stuff to query
+    if ($proxyuser) {
+      # Demand-load MIME::Base64
+      if (!defined(&MIME::Base64::encode)) {
+	eval "use MIME::Base64;";
+	die "w3http: Could not load MIME::Base64 module necessary for authentication\n"
+	  unless defined(&MIME::Base64::encode);
+      }
+      
+      $query.='Proxy-Authorization: Basic '.
+	MIME::Base64::encode($proxyuser.':'.$proxypasswd);
+
+      print STDERR "\nProxyuser: [$proxyuser]\nProxypasswd: [$proxypasswd]\n"
+	if $debug>=2;
+    }
   }
+  
+  $query.='User-Agent: '.$agent.$nl.$accept.$nl;
+  
+  # If we're using proxy then set up things...
+  print STDERR "\nQUERY:\n",$query,"---\n" if $debug>=2;
   
   # Find out who to ask, check if we know already
   if (exists($address{$host})) {

@@ -71,7 +71,6 @@ __END__
 #
 # You might want to change or comment out this:
 use lib '/hom/janl/lib/perl';
-# w3mir fixup program
 #
 # Can perform the following fixes:
 # - Rewrite redirected to URLs
@@ -79,6 +78,8 @@ use lib '/hom/janl/lib/perl';
 # - change external links to point to some helpfull .html file ---- NOT IMPLEMENTED
 # - change links to documents not retrived to point to some helpfull
 #   .html file --- NOT IMPLEMENTED
+# - After adding a 'Also' directive we can edit the urls pointing to within
+#   the new space of the retrival scope, making the pointers consistent.
 
 # Method: 
 # 1 Gather list of all URLs to be rewritten:
@@ -109,7 +110,7 @@ use URI::URL;
 use strict;
 
 my $VERSION;
-$VERSION='0.5alpha';
+$VERSION='0.6';
 
 my $debug=0;			# Not debugging
 my $verbose=0;
@@ -125,10 +126,12 @@ my $infoloss=0;			# 1 if any URL translations (which
                                 # not.  Text of user supplied
                                 # fetch/ignore rules
 
-my $doindex=1;			# append $indexname to /$?
+my $doindex=1;			# append $indexname to /$ ?
+
+my $editthis='';		# Edit references matching this expression.
 
 my $files=0;			# How many files have I edited?
-my $urls=0;			# How many URLs were corrected?
+my $rc='';
 
 my $rule_text="# User defined fetch/ignore rules\n";
 # Code ref to the rule procedure
@@ -188,11 +191,17 @@ sub parse_args {
     if ($f =~ s/^-+//) {
       $verbose=-1,next if $f eq 'q'; 		# Quiet
       $verbose=1,next if $f eq 'c';		# Chatty
-      &version,next if $f eq 'v';		# Version
-      parse_cfg_file(shift),next if $f eq 'cfgfile';
-      usage(),exit 0 if ($f eq 'help' || $f eq 'h' || $f eq '?');
+      die "w3mfix version $VERSION\n" if $f eq 'v';	# Version
+      die "rtfm\n" if ($f eq 'help' || $f eq 'h' || $f eq '?');
 
-      if ($f eq 'd') {		# Debugging level
+      if ($f eq 'editref') {
+	die "Sorry, can only have one -editref pr. run\n"
+	  if $editthis;
+	$editthis=quotemeta(shift);
+	next;
+      }
+
+      if ($f eq 'd') {	# Debugging level
 	$f=shift;
 	unless (($debug = $f) > 0) {
 	  die "w3mfix: debug level must be a number greater than zero.\n";
@@ -204,12 +213,13 @@ sub parse_args {
       warn "w3mfix: Unknown option: -$f.  Use -h for usage info.\n";
       exit(1);
     } else {
-      # If we get this far then the commandline is broken
-      warn "w3mfix: Unknown commandline argument: $f.  Use -h for usage info.\n";
-      exit(1);
+      # If we get this far then ... it's a configuration file name:
+      $rc = $f;
+      die "w3mfix: Got a non-option argument that wasn't the name of a\n".
+	"(configuration) file either\n"
+	  unless -f $f;
     }
   }
-  return 1;
 }
 
 
@@ -515,7 +525,7 @@ sub read_state {
 
   $reffile="referers" if $win32;
 
-  # warn "reading $reffile\n";
+  warn "reading $reffile\n" if $verbose>0;
   open(REFERERS,"< $reffile") ||
     die "Could not open $reffile for reading: $!\n";
 
@@ -538,7 +548,7 @@ sub read_state {
 
   $redirfile=".redirs" if $win32;
 
-  # warn "reading $redirfile\n";
+  warn "reading $redirfile\n" if $verbose>0;
   open(REDIRS,"< $redirfile") ||
     die "Could not open $redirfile for reading: $!\n";
 
@@ -568,7 +578,7 @@ sub process_tag {
 
   # Information loss through apply or processing in this procedure?
   my $il = $infoloss; 
-  my $redirs = 0;  # Follow up to 32 redirects
+  my $redirs;
   my $stat;
 
   my $rum_url;	# The absolute URL
@@ -590,9 +600,11 @@ sub process_tag {
       warn "\n$key = $rum_url\n" if $debug;
 
       # Apply redirects:
+      $redirs=0;
       if (exists($rum_redirected{$rum_url})) {
 	$il=1;
-	while (exists($rum_redirected{$rum_url}) && $redirs++ > 32) {
+	while (exists($rum_redirected{$rum_url})) {
+	  die "Too many redirects in a row\n" if $redirs++>32;
 	  warn "$rum_url -> ".$rum_redirected{$rum_url}."\n" if $debug;
 	  $rum_url=$rum_redirected{$rum_url};
 	}
@@ -675,7 +687,7 @@ sub edit_html_file {
     = stat($lf_url);
 
   if (!open(TMPF,"< $lf_url\n")) {
-    warn "Cannot read $lf_url: $!\n";
+    warn "Cannot read $lf_url: $!\n" if $verbose>=0;
     return;
   }
 
@@ -683,17 +695,17 @@ sub edit_html_file {
   close(TMPF);
 
   if (! $page =~ /<HTML/i) {
-    print STDERR "$lf_url is not html\n";
+    print STDERR "$lf_url is not html\n" if $verbose>0;
     return ;
   }
 
   $files++;
 
-  print STDERR "w3mfix: $lf_url";
+  print STDERR "w3mfix: $lf_url" if $verbose>=0;
   
   warn "$lf_url is a html file\n" if $debug;
 
-  print STDERR " reading";
+  print STDERR " reading" if $verbose>0;
   
   open(TMPF,$lf_url) || 
     die "Could not open $lf_url for reading: $!\n";
@@ -704,11 +716,11 @@ sub edit_html_file {
   }
   close(TMPF);
 
-  print STDERR " ",length($page)," bytes";
+  print STDERR " ",length($page)," bytes" if $verbose>0;
 
   # It's a html document
 
-  print STDERR ", editing";
+  print STDERR ", editing" if $verbose>0;
 
   ($newpage,undef) = 
     &htmlop::process($page, # $htmlop::NODOC,
@@ -719,7 +731,7 @@ sub edit_html_file {
   open(TMPF,">$lf_url") ||
     die "\nCould not open $lf_url for writing: $!\n";
   
-  print STDERR ", saving";
+  print STDERR ", saving" if $verbose>0;
 
   if (length($newpage)) {
     # This is ODD: close does not seem to flush the buffers.  So we
@@ -735,7 +747,7 @@ sub edit_html_file {
   # Set times back to what they were.
   utime $atime,$mtime,$lf_url;
 
-  print STDERR ".\n";
+  print STDERR ".\n" if $verbose>=0;
 }
 
 # ############################### Scope test
@@ -782,9 +794,40 @@ sub apply {
 sub edit_as_needed {
   my $rum_redirected;
   my $rum_url;
+  my $o_rum_url;
   my $rum_referer;
   my $lf_url;
   my $foo;
+  my $redirs;
+
+  if ($editthis) {
+
+    # Find the URLs that match $edithis
+    foreach $o_rum_url (keys %rum_referers) {
+      # Work on them if they (now) fall within the scope of retrival
+      $redirs=0;
+      $rum_url=$o_rum_url;
+      if (exists($rum_redirected{$o_rum_url})) {
+	while (exists($rum_redirected{$rum_url})) {
+	  die "Too many redirects in a row\n" if $redirs++>32;
+	  warn "$rum_url -> ".$rum_redirected{$rum_url}."\n" if $debug;
+	  $rum_url=$rum_redirected{$rum_url};
+	}
+      }
+      next unless $rum_url =~ /$editthis/io;
+      next unless want_this($rum_url);
+      # Find and edit the documents containing references to $o_rum_url
+      foreach $rum_referer (@{$rum_referers{$o_rum_url}}) {
+	next if $rum_referer eq '(commandline)';
+	$lf_url=apply($rum_referer);
+	next unless defined($lf_url);
+	edit_html_file($lf_url,$rum_referer);
+      }
+    }
+    
+    # Don't do anything else when invoked thus
+    return;
+  }
 
   if ($doindex) {
     # Edit everything that refers anything with trailing /
@@ -812,9 +855,14 @@ sub edit_as_needed {
 
 # ############################### 'main'
 
-my $rc = $ARGV[0] || '.w3mirc';
+&parse_args(@ARGV);
 
-# warn "w3mfix: rc file: $rc\n";
+if (!$rc) {
+  $rc='.w3mirc';
+  $rc='w3mir.ini' if $win32;
+}
+
+warn "w3mfix: rc file: $rc\n" if $verbose>0;
 
 &parse_cfg_file($rc);
 
@@ -872,60 +920,100 @@ die "Internal apply rules did not compile.  The code is:
 
 exit 0;
 __END__
+# -*- perl -*-  There must be a blank line here:
+
 =head1 NAME
 
 w3mfix - fixup program for w3mir
 
 =head1 SYNOPSIS
 
-B<w3mfix> [B<-cfgfile file>]
+B<w3mfix> [B<options>] [B<configuration-file>]
 
 =head1 DESCRIPTION
 
 B<w3mfix> is the companion program to L<w3mir>.  It can be used for
 several URL editing operations usefull in different situations.  
 
-When starting B<w3mfix> will read the specified configuration file,
-try to read .w3mirc (w3mir.ini on win32) if it's present in the
-current directory.
+When starting B<w3mfix> will read it's configuration file.  It's name is 
+either .w3mirc (w3mir.ini on win32) or specified on the commandline.
 
-B<w3mfix> is controlled by the 'fixup' directive of the configuration
-file.  As well as 'Index-name' and ...
+B<w3mfix> is controlled by the 'Fixup' directive of the configuration
+file (described in the L<w3mir> documentation).  B<w3mfix> is also
+affected by 'Index-name' and the one special commandline option it
+knows, as well as the directives/options controlling verbosity and
+debugging information.
+
+=head1 DESCRIPTION
 
 B<w3mfix> can rewrite URLs in these ways:
 
 =over 4
 
 =item * Rewrite URLs that resutled in redirects to point to the place
-	redirected to.  This is needed in any case and will always be
-	fixed by B<w3mfix>.
+redirected to.  This is needed in all cases and will always be fixed
+by B<w3mfix>.
 
-=item * Change URLs ending in .../ into .../index.html (or .../Welcome.html).
-	This is not needed when the mirror is meant do be used with a
-	web server. It is only usefull for browsing directly from disk
-	or CDROM, but in this case it's most often required.
+=item * Change URLs ending in .../ into .../index.html (or
+.../Welcome.html).  This is, probably, not needed when the mirror is
+meant do be used with a web-server.  It is usefull for browsing
+directly from disk or CDROM, but in this case it's, most often,
+required.  To disable this specify the I<noindex> option with the
+'Fixup' directive.
 
-	The default is to transform URLs ending in .../ into
-	.../index.html.  To disable this specify the I<noindex>
-	option.
+The default is to transform URLs ending in .../ into .../index.html.
 
-	To controll the name of the index file use the I<Index-name>
-	directive as documented in L<w3mir>
+To controll the name of the index file use the I<Index-name> directive
+as documented in L<w3mir>
 
 =item * Change URL links to documents outside the mirror to point to
-	some local document.  Could be usefull if the mirror is
-	destined for a CDROM to be used on a unconnected machine.
+some local document.  Could be usefull if the mirror is destined for a
+CDROM to be used on a unconnected machine.
 
-	THIS IS NOT YET IMPLEMENTED
+THIS IS NOT YET IMPLEMENTED
 
-=item * Change URL links to documents that w3mir was unable/forbidden
-	to retrive to point to some local document.  Pointing these
-	to a nice informative document is probably better than random
-	error messages from the browser.
+=item * Change URL links to documents that L<w3mir> was
+unable/forbidden to retrive to point to some local document.  Pointing
+these to a nice informative document is probably better than random
+error messages from the browser.
 
-	THIS IS NOT YET IMPLEMENTED
+THIS IS NOT YET IMPLEMENTED
+
+=item * And, least, but far from last, B<w3mfix> can be used to
+prepare an established mirror for enlargement.
+
+This feature is used thus: Add the new site or subsite to be mirrored
+on the configuration file (by adding B<Also:> and B<Also-quene:>
+directives).  Then run B<w3mfix> with the B<-editref> option.  When
+the B<-editref> option is specified B<w3mfix> will not perform any
+other editing tasks.
+
+E.g.; To add I<http://www.yahoo.com/Science/Artificial_Life/> to your
+mirror add something like
+
+	  Also: http://www.yahoo.com/Science/Artificial_Life/ yahoo
+
+to the configuration file, then run w3mfix:
+
+	  w3mfix -editref www.yahoo.com/Science/Artificial_Life
+
+This will cause all references to
+I<www.yahoo.com/Science/Artificial_Life> (and under) to be edited so they
+point to within the mirror.  After B<w3mfix> has finished you can run
+L<w3mir> in the normal manner.
 
 =back
 
-=head1 DESCRIPTION
+=head1 BUGS
+
+Naah.
+
+=head1 SEE ALSO
+
+L<w3mir>
+
+=head1 AUTHORS
+
+B<w3mir>s authors can be reached at I<w3mir-core@usit.uio.no>.
+B<w3mir>s home page is at http://www.math.uio.no/~janl/w3mir/
 

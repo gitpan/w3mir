@@ -121,6 +121,11 @@ Some of these are speculative, some others are very useful.
 
 - CSS parsing/support at the same level as HTML
 - Full support for APPLETS/OBJECT tags.
+- Alias rules.  These would enable w3mir to map ukoln.bath.ac.uk and 
+  bubl.bath.ac.uk to www.ukoln.ac.uk and know that the objects contained
+  in these are all the same.  Another use would be to mirror from a mirror
+  instead of the _real_ site, since the original site to which you have
+  references are on a slow link while the mirror is on a fast link.
 - FTP support (easy if through a http style ftp proxy, but is that what
   we want?)
 - Retrive recursively until N-th order links are reached.  This
@@ -134,8 +139,8 @@ Some of these are speculative, some others are very useful.
   retriver able to reproduce mirrored site for any given date.
 - Some text processing:  Adding and removing text/sgml comments when suitable
   options and tags are found.  Suggested by Ed Jordan.
-- Feature to add retrival date in html comment or document text
-  for documentation or other purposes.
+- Put retrival date-stamps as comments in html files, to document the when
+  and how of how this document was retrived.
 - Example: If you're mirroring a site primarily to get to the papers, but
   the site has n versions of each paper: foo.ps.gz, foo.ps.Z, foo.dvi.gz
   foo.dvi.Z, foo.tar.gz, foo.zip and you only need one version.  Implement
