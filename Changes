@@ -1,0 +1,208 @@
+In this file we list changes according to some vague rules.
+
+* About 0.99a3:
+
+Feature/Code freeze time.  Now we only debug.  Baring serious problems
+the next release will be 0.99b1 (beta).  New in this release
+
+- We understand the BASE tag.  It's still removed, but everything is
+  relative to it instead of the document origin.
+- Everything is in place to fix up redirected references, in a separate
+  program.
+
+* About 0.99a2:
+
+The todo list grew.  So -B and -I implemented.  This required a major
+restructuring/reorganization.  But it seems fine now.  The
+documentation has been updated to reflect this.
+
+-B is 'batch get'
+-I is read URLs from standard input
+
+I expect to release a3 before the feauture additons halt completely.
+
+* About 0.99a1:
+
+- Finished all tasks in version 1.0 TODO list.  Except for those
+  that will be solved by a companion program.
+- Cleaned up and debugged the URL processing, the old code defied
+  documentation.
+- Fixed a bug in the newline conversion code.  ^M^J text comes out
+  better now.
+- Wrote actual documentation.
+
+Bugfixes:
+- Java scripts (and embeded style sheets) will no longer be mangled.
+
+* About 0.99:
+
+Person to shoot: Nicolai Langfeldt (janl@math.uio.no)
+
+This version is supposed to become version 1.0 after some testing and
+debugging.
+
+* About 0.93:
+
+- Switched to regular perl5 packageing, configuration and installation
+  procedures.
+- Stopped using libwww-perl 0.40, using libwww-perl 5 exclusively
+  instead.
+- -pflush option forces proxy cache to get fresh copies of all docs.
+  Corresponding, but more extensive, additions in configuration file.
+- Fixed bug in directory removal code.
+- Now we abort with errormessage if unknown option/argument is
+  specified on the commandline.
+- Extraction of URLs from PDF documents.  URLs them are not edited
+  as with HTML though.
+- As a tribute to Getopt::Long we now accept -, --, ---, ----, -----,
+  etc, as option prefixes.
+- New recognized options: -help, -h, -?.
+- -R commandline switch, and config file fetch-option 'remove',
+  activates file and directory removal.  This is _very_ different
+  from the old usage/meaning of the -R switch, but the old usage is
+  bound to result in a error message.
+
+  It will remove these files:
+
+    1) Files no longer referenced.
+    2) Files not present on server.
+    3) Empty directories.
+
+  If there were some documents that were not transfered at all due to
+  transport errors only the second and third of files, and empty
+  directories, are removed, so, if a document is unreferenced because
+  the referer could not be retrived it will not be removed.
+
+- Multiscope convinience directives.  Need to use a config file
+  to use this.  URL: specifies the origin.  Also: specifies other
+  document spaces we want to retrive.  See multiscope.cfg.
+- Referer works and authentication works.  See config example: example.cfg.
+- Added configuration file, fetch/ignore options and namespace 
+  translations.  See the enclosed example.cfg file for options and
+  syntax.  Removed some complex options from commandline.
+- Revamped url selection mechanism, both ignore and fetch options
+- Namespace translations, /images can be moved to inside the scope of
+  retrival.  Come to think of it, other servers can also be moved
+  inside the scope of retrival.
+- Preserves mtime if supplied in reply header.
+- Switches to disable User (-nu) and Referer (-nr) header for anonymity.
+- -lc switch translates local filenames to lowercase so if originating
+  server is case insensitive and multiple case combinations have been
+  used for the same file links continue to work on a case sensitive
+  filesystem and so on. It must be the first argument on the
+  command line, or the Fetch-options: must be the first line in the
+  configuration file.
+- Simple html editing features: removal of sections and insertion of 
+  a header with info.
+- -umask switch
+- -ir (initial referer) switch.
+- -agent switch
+- bugfixes
+
+* About 0.92:
+
+Moving towards 1.0 at a snails pace.  Chris Surgot has supplied win32
+compatability, but I'm not sure of it's state as I haven't heard from
+him in a while.
+
+The plan for 0.92 is propper fetch-all-but and fetch-nothing-but
+functionality, ability to translate some key urls to something else,
+so we can handle imagemaps in a more automated manner, and a CONFIG
+file, all those things will require way to many commandline switches.
+
+* About w3mir 0.91:
+
+Two major changes: (j)html.pl has now been replaced with htmlop.pl,
+which atempts to parse html files in a reasonable, yet quick manner.
+And I have started using Roy Fieldings wwwurl.pl (0.40) for a lot of
+url stuff.  Chris Szurgot made it win32 compatabile.  W3mir is now
+perl5 only.
+
+- renamed jhttp.pl to w3http.pl.
+- changed the activity messages.
+- Now supplies referer
+- -fs switch added, but not really needed thanks to Chris.
+- Can save binary files directly to disk, saving memory, idea and
+  code by Chris, raped by me.
+- A lot of work on all sorts of things.
+- -R switch mandatory
+- -d switch compliments of Ed Jordan
+
+* About the w3mir 0.9:
+
+Person to shoot: Nicolai Langfeldt (janl@ifi.uio.no)
+
+I have rewritten http.pl (now called jhttp.pl, the call interface is
+incompatible) and rewritten/recycled w3mir itself.  w3mir now adds
+some SGML tags to HTML documents so that they are more easily
+recognizable as HTML.  This does not damage the ducuments in any way,
+they are still legal HTML documents.  w3mir relies on this info being
+in HTML files on disk, that means that document hierarchies created
+with previous versions of w3mir, and other programs should be deleted
+and then re-mirrored with this new version of w3mir.  If you're
+unwilling to risk this please make a backup or mirror to a alternative
+directory if you so wish.
+
+If you find the need to start mirroring from scratch inconvinient
+please make a script that identifies html files you have on disk and
+apply the procedure html'canonize on it, that will allow w3mir to work
+correctly on a old mirror.
+
+There are still a lot of problems in the html.pl module.  Something
+_is_ being done with it, but don't expect fixes to it to appear
+_now_. If someone would like to voulenter to fix it we'd be happy to
+accept.
+
+Summary of changes
+- Now % encodes most of the characters rfc1738 thinks we should encode,
+  and at least enough of them to keep us out of trouble.
+- New option: -R so you can tell w3mir the local path on the http server
+  where the docs will be stored.
+- New option: -t, times to (re)try getting a failed document.  Default is
+  3.  The retry code is not very debugged, I need to simulate more failures
+  or get a more lagged server to test against. Please report.
+- Will not trample binary files (i.e. gifs and jpegs will not be corrupted)
+- Will not try to use all lines of text files as urls.
+- Will not save the html text of failed requests.
+- Handles some cases of missing trailing /. A alarm will be sounded.
+- Prints OS/network/HTTP error messages so that problems can be identified.
+- New option: -P host:port for proxy http. Used with -r and -f you can
+  make sure your caching server has the documents you want to read before
+  you point your browser at them.  Caching server admins can use it to
+  prime/refresh the cache.
+- New option: -p, to pause between http requests so that the server gets a
+  chance to breathe between requests.
+- New option: -f, forget the retrived docs, they are not saved.  This is
+  usefull for cache priming, and to some extent for checking links and
+  debugging of w3mir url processing w/o eating disk space.
+- New option: -q, quiet. No 'created <file> (<bytes> bytes)' messages.
+  Error messaged will still be printed.
+- + and other Regular Expression meta characters in urls should be less
+  harmful now.
+
+It has been remarked that all this editing of the html files does not
+a 'mirror' program make.  The problem is that
+1. w3mir has always edited the html docs (and some binary files corrupting
+   them) to get the urls on a form so that the mirrored hierarchy can
+   be browsed wholy in the new location (absolute vs. relative urls and so
+   forth).
+2. A reliable means of identifying HTML documents on disk was needed.
+   When receiving a document from a http server there is no problem, the
+   server supplies the document type, on disk the problem is slightly
+   more sticky.  It turns out that SGML specifies that a document should
+   contain two tags of document metadata in addition to the <HTML>...</HTML>
+   container tags.  w3mir (using a new html.pl routine) injects those tags
+   if they are missing and in turn use the presence of one of them to decide
+   if a file is HTML or not. This will save me/us from making fools of 
+   ourselves if a document looks superficialy like HTML but isn't.
+
+
+* About w3mir 0.8 release:
+
+This was a release made by Gorm Haug Eriksen (gorm@usit.uio.no). AFAIK
+he concived w3mir and wrote the first (8?) versions.  His work again
+was based on htget, http.pl and html.pl written by Oscar Nierstrasz.
+
+The idea is to get only files in the hierarchy that has changed since
+the last time the file was copied.  This is a Good Idea.  This saves
+considerable time and bandwidht.

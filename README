@@ -1,0 +1,153 @@
+PROPAGANDA:
+
+See http://www.math.uio.no/~janl/w3mir/ for propaganda.
+
+--------------------------------------------------------------------------
+FAQS:
+
+Q: W3mir takes a long time between each document it fetches.
+A: Yes, it's being nice to the server, sleeping 30 seconds between
+   each connection.  See -p switch.
+
+Q: Where can I get w3mir?
+A: http://www.math.uio.no/~janl/w3mir/
+
+Q: Are there any mailing lists?
+A: Yes, see below.
+
+Q: Should I subscribe to any of the mailinglists?
+A: Yes, if you use w3mir at all you should subscribe to 
+   w3mir-info@usit.uio.no, send e-mail to janl@math.uio.no to be
+   subscribed.
+
+Q: I found a bug!
+A: See below.
+
+Q: Does it handle cgis?
+A: In a manner of speaking.  The default is to just execute the cgi and
+   save the result.  Instead you can also let all references to cgis
+   be ignored and let the point back to the original site.  This requires
+   use of a config file and directives like:
+     Ignore: *.cgi
+     Ignore: *-cgi
+
+Q: Does it handle imagemaps?
+A: It does handle client side imagemaps, but not server side imagemaps.
+   Server side imagemaps can be handled like cgis, they point back to the
+   original site:
+     Ignore: *.map
+
+--------------------------------------------------------------------------
+BUGS:
+
+- None :-)
+
+Please see below for how to report bugs.
+
+--------------------------------------------------------------------------
+FEATURES (NOT bugs):
+
+- Urls with two /es ('//') in the path component does not work
+  as some might expect.  According to my reading of the http/url spec.
+  it is an illegal construct, which is a Good Thing, because I don't
+  know how to handle it if it's legal.
+- If you start at http://foo/bar/ index.html might be gotten twice.
+  We don't know if the server serves Welcome.html or index.html when a
+  directory is requested.  w3mir assumes index.html though.
+
+--------------------------------------------------------------------------
+MAIL LISTS, REPORTING BUGS:
+
+Please send bug reports to w3mir-core@usit.uio.no, please include URL
+and command line that triggered the bug.  Ideas (see todo lists
+further down please), questions about usage, general discussions and
+other related talk to w3mir-info@usit.uio.no.  To subscribe to these
+lists email janl@math.uio.no.  The w3mir-core list is intended for
+w3mir hackers only.
+
+--------------------------------------------------------------------------
+COPYRIGTHS:
+
+w3mir, w3http.pm, w3pdfuri.pm and htmlop.pm are free but it is
+Copyrighted by the various involved hackers.  If you want to copy,
+hack or distribte w3mir you can do that providing you comply with the
+'Artistic License' enclosed in the w3mir distribution in the file
+named Artistic.
+
+--------------------------------------------------------------------------
+CREDITS:
+
+- Oscar Nierstrasz: Wrote htget
+- Gorm Haug Eriksen: Started w3mir on the foundations of htget,
+	contributed code later.
+- Nicolai Langfeldt: Learning from Oscar and Gorms mistakes, rewrote
+  everything.
+- Chris Szurgot: Adapting to win32, good ideas and code contribs, 
+  Debugging.  And criticism.
+- Ed Jordan: patch, debugging.
+- Rik Faith: Uses w3mir extensively, not shy about complaining and
+  commenting and suggesting.  
+- The libwww-perl author(s) that made adding some new featres
+  ridicolously easy.
+
+--------------------------------------------------------------------------
+TODO LIST:
+
+Currently I'm preparing for version 1 of w3mir.
+
+* TODO for version 1:
+
+- Documentation.
+- A max depth switch, implement with ignore rule?
+- -B switch to batch get a series of URLs (given on commandline)
+  The files will _not_ be processed.
+- -I switch to combine with -B to read URLs from standard-input.
+- -B combined with -r should supress any other processing than url
+  listing.
+- Re-introduce -abs
+- A way, in the config file to quene more than one 'root' document.  Say
+  with 'Quene:' and 'Also-Quene:' which is like 'Also:' and 'Quene:'
+- Fix bugs discovered.
+
+- Ability to dump the referers list to file, needed for below program.
+- Ability to dump the redirects encountered to file, also needed for 
+  program below.
+
+This will be implemented in a separate program, I think:
+- Fixup _all_ links to documents that are redirected somewhere else.
+  This will make a mirror mirrored from a document scope which contains
+  browsable.
+- Add switch to specify name of file served when directory is requested.
+  Two widely used names are 'index.html' (originated in NCSA HTTPD I think) 
+  and 'Welcome.html' (the Cern HTTPD way).  Should be acompanied by code to
+  change foo/ urls too foo/index.html in the html docs, that way they are
+  browseable in filesystems (i.e. on CD-ROM).
+
+
+* TODO, after version 1:
+
+Some of these are speculative, some others are very useful.
+
+- Integrate with cvs or rcs (or other version controll system) to make
+  retriver able to reproduce mirrored site for any given date.
+- Ability to check for existense of documents outside scope, for link 
+  checking (through a 'second-order' list)
+- Some text processing:  Adding and removing text/sgml comments when suitable
+  options and tags are found.  Suggested by Ed Jordan.
+- Feature to add retrival date in html comment or document text
+  for documentation or other purposes.
+- Example: If you're mirroring a site primarily to get to the papers, but
+  the site has n versions of each paper: foo.ps.gz, foo.ps.Z, foo.dvi.gz
+  foo.dvi.Z, foo.tar.gz, foo.zip and you only need one version.  Implement
+  a way to get only one version of documents provided in multipele versions,
+  something like multi axis preference list to get only the most attractive
+  version of the doc.
+- A reverse hash so we can find out what url a file came from, and detect
+  namespace colitions if desierable (could issue warning, not get doc...)
+- Your suggestion here.
+
+* TODO, http related
+- Use Keep-alive.  Then we should probably stop using 30 second pauses
+  between document retrivals.
+- HTTP/1.1?  HTTP/1.1 servers should do keep-alive even with 1.0 requests.
+- Separate quenes for each server, interleave requests.

@@ -1,0 +1,12 @@
+Artistic
+Changes
+INSTALL
+MANIFEST
+Makefile.PL
+README
+example.cfg
+multiscope.cfg
+w3mir.PL
+htmlop.pm
+w3http.pm
+w3pdfuri.pm
