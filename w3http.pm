@@ -1,7 +1,7 @@
 # -*- perl -*-
 # w3http.pm	--- send http requests, janl's 12" mix for w3mir
 #
-$VERSION=1.0.20;
+$VERSION=1.0.21;
 #
 # This implements http/1.0 requests.  We'll have problems with http/0.9
 # This is in no way specific to w3mir.
@@ -13,10 +13,11 @@ $VERSION=1.0.20;
 # copied from the camel book.  Some functions written by Gorm Haug Eriksen
 # (gorm@usit.uio.no) has been used as is.
 #
-# Copyright Holders:
+# Contributors:
 #   Nicolai Langfeldt, janl@ifi.uio.no
 #   Gorm Haug Eriksen, gorm@usit.uio.no
 #   Chris Szurgot, szurgot@itribe.net
+#   Bernhard Weisshuh, bkw@weisshuhn.de
 # Copying and modification is governed by the "Artistic License" enclosed in
 # the w3mir distribution
 #
@@ -34,8 +35,8 @@ $VERSION=1.0.20;
 # $w3http::doclen: The length of the document
 # $w3http::result: The numerical http result code.  It may take these values:
 # - Normal HTTP reply codes
-# -  99: Permanent(?) error: see $! or $restext (host lookup failure, 
-# 		connection refused...)
+# -  98: OS error, permanent, errormessage in $!
+# -  99: Other permanent error: see $restext.
 # - 100: Transient error: Timeout/connection broken
 # $w3http::restext: The english(?) HTTP result or w3http generated message
 # $w3http::header: The http header returned.
@@ -118,6 +119,9 @@ $VERSION=1.0.20;
 #     janl 01/08/98 -- Timeout fix from Michael Gusev, also flag short doc
 #			as error.
 #     janl 24/09/98 -- Better error handling -> 1.0.20
+#     bkw  17/12/98 -- Fixed problem with tempfile-generation when
+#                      running in forget-mode (-f)
+#     janl 05/01/99 -- Referer: dropped if argument not true -> 1.0.21
 
 package w3http;
 
@@ -213,7 +217,7 @@ $HEADURL = 4;			# HEAD query. Arg: url
 $IFMOD = 101;			# If-modified after: Arg: HTTP-date-str
 $IFMODF = 102;			# If-modified after file: Arg: local-file-name
 $AUTHORIZ= 103;			# Basic authorization. Arg: 'user:password'
-$REFERER = 104;			# Referer: Arg: Referer list
+$REFERER = 104;			# Referer: Arg: Referer 
 $SAVEBIN = 105;			# Write binary files to disk. Arg: File name
 				# If this opcode is used then main must provide
 				# a &main::movefile(oldname,newname) procedure
@@ -306,7 +310,8 @@ sub query {
       }
       $query.='Authorization: Basic '.MIME::Base64::encode(shift,'').$nl;
     } elsif ($arg == $REFERER) {
-      $query.='Referer: '.(shift).$nl;
+      my($referer)=shift;
+      $query.='Referer: '.$referer.$nl if $referer;
     } elsif ($arg == $SAVEBIN) {
       $saveto=shift;
     } elsif ($arg == $ACCEPT) {
@@ -392,18 +397,18 @@ sub query {
   # Close the socket, just in case, and ignore error returns
   close(FS);
   
-  socket(FS, AF_INET, SOCK_STREAM, $proto) || return &resetsign;
+  socket(FS, AF_INET, SOCK_STREAM, $proto) or return &oserror;
   warn "Got my socks on\n" if $debug;
   
   my $paddr = sockaddr_in($port, $thataddr);
-  connect(FS, $paddr) or return &resetsign;
+  connect(FS, $paddr) or return &oserror;
   warn "Connected\n" if $debug;
   
   # Arrange timeout
   alarm($timeout) if $hasAlarm;
   
   # We have, in fact, received SIGPIPE on this line:
-  send(FS,$query,0) or return &resetsign;
+  send(FS,$query,0) or return &oserror;
 
   if ($chime) {
     $result=100;
@@ -492,7 +497,7 @@ sub query {
   ($result,$restext,%headval)=&analyze_header($header);
 
   print STDERR "REPLY:\n",$header,"\n---\n" if $debug>=2;
-  
+
   # Check if the document is a non-encoded text document. The contents
   # could be (x-)?compress or (x-)gzip coded (compressed in other
   # words).
@@ -523,6 +528,10 @@ sub query {
       # If output to stdout then send it directly there rather than
       # using disk unnecesarily.
       $tmpf='-' if ($saveto eq '-');
+
+      # If output is nulldevice (running -f), use it also for tmpfile,
+      # since it would otherwise try to create it in /dev under unix.
+      $tmpf=$main::nulldevice if ($saveto eq $main::nulldevice);
       
       warn "USING TMPFILE: $tmpf\n" if $debug;
       
@@ -593,11 +602,14 @@ sub query {
 
     close(FS);  # Close socket completely
     
+    print STDERR "DOCUMENT:\n----\n",$document,"\n----\n" if $debug>=255;
+  
     if ($wantbytes &&
 	$wantbytes != $doclen) {
       $result=100;
-      $restext='document transfer error';
+      $restext='transfer error; too many bytes in document';
       $restext='document was incomplete' if ($wantbytes > $doclen) ;
+      print STDERR "SHORT DOCUMENT" if $debug>=16;
       if ($save) {
 	unlink($tmpf) || warn "Could not unlink $tmpf: $!\n";
       }
@@ -610,7 +622,6 @@ sub query {
       &main::movefile($tmpf,$saveto);
     }
     
-
     # If this is a non-encoded text file and we're supposed to convert
     # foreign newlines then we do it. It would be faster to do this
     # with each chunk of input in the input loop, but this gives us
@@ -714,6 +725,7 @@ sub last_modified {
 sub timeout {
   # Set timeout flag.  The using procedure has to set other result codes.
   $chime=1;			# When this is 1 then the alarm has gone off
+  print STDERR "TIMEOUT!!!!\n" if $debug>=16;
 }
 
 
@@ -728,6 +740,17 @@ sub resetsign {
   undef $savALRM;
 #  $SIG{'PIPE'}=$savPIPE;
   return 0;
+}
+
+
+sub oserror {
+  
+  resetsign;
+
+  $result=98;
+  $restext='w3http: OS error';
+  return 0;
+
 }
 
 

@@ -12,30 +12,31 @@
 <body>
 <h1>W3MIR HOWTO</h1>
 
-<p><b>Corresponding to version 1.0.2 of w3mir</b>
+<p><b>Corresponding to w3mir version 1.0.2 and above</b>
 
-<p>W3mir is a all purpose WWW copying and mirroring program.  Its main
-focus is copying complete directory structures keeping your copy
+<p>W3mir is an all purpose WWW copying and mirroring program.  Its
+main focus is copying complete directory structures keeping your copy
 browseable through a web server, or directly off a disk or CDROM if
-you want. W3mir will fix URLs that are redirected and everything else
+you want.  W3mir will fix URLs that are redirected and everything else
 that needs to be fixed to make your copy browseable.  But it also does
-the odd jobs, retrieving single documents, batch getting several
-documents and more.  You may tell w3mir not to change anything in the
-retrieved documents.  W3mir has been in development quite a long time
-so you find options to do a lot of things needed when copying things
-off the web.
+odd jobs, retrieving single documents, batch getting several documents
+and more.  You may tell w3mir not to change anything in the retrieved
+documents.  W3mir has been in development quite a long time so you
+find options to do a lot of things needed when copying things off the
+web.
 
-<p>With w3mir you may copy the entire contents of one directory
-hierarchy of a web server, or several related hierarchies off as many
-servers as you like.  They don't even have to be related.  
+<p>With w3mir you may copy the entire contents a web server.  Or just
+a directory hierarchy, or several related hierarchies off as many
+servers as you like.  They don't even have to be related.
 
 <p>W3mir supports HTML4, and has partial support for CSS, Java,
 ActiveX and Adobe Acrobat (PDF) files.  And it works on Win32
 machines.
 
-<p><b>Warning:</b> W3mir enables you top copy a lot of things off the
-Web, but remember, the things you retrieve might be copyrighted and the
-copy you make with w3mir might in fact be illegal to posses.
+<p><b>Warning:</b> W3mir enables you to copy a lot of things off the
+Web, but remember, the things you retrieve might be copyrighted and
+the copy you make with w3mir might in fact be illegal to make and
+posses.
 
 <hr>
 
@@ -55,6 +56,7 @@ class="red">Really!</b>)
   <li><p><a href="#rm">remove the files that are no longer on the
     original site from the mirror?</a>
   <li><p><a href="#depth">limit how deep w3mir will recurse?</a>
+  <li><p><a href="#memory">limit w3mirs memory usage?</a>
   <li><p><a href="#multi">copy files from multiple sites?</a>
   <li><p><a href="#alias">copy files from one server with several names?</a>
   <li><p><a href="#aborted">restart a mirror process after stopping it
@@ -96,20 +98,22 @@ class="red">Really!</b>)
 <p>To copy something random once there is a high likeliness you can
 just start w3mir with some simple options and it will do the job you
 want it to.  Providing that the remote site is not too complex and
-your expectations of the copy aren't high :-)
+your expectations of the copy aren't high :-) This is what wget, the
+gnu w3 mirroring program, does and is good at.
 
 <h3>Configuration file</h3>
 
 <p>Once you want to keep a copy of a remote site up-to-date over time,
-or have to mirror something with CGI scripts, server side image-maps,
-redirects or authentication you have to write a configuration file for
-w3mir.  This is not hard, and there are two example files in the w3mir
-distribution.  It will also be explained here.  The configuration file
-is typically called <tt>.w3mirc</tt> (<tt>w3mir.ini</tt> on win32
-machines), and can be written with a simple text editor.  It is kept
-in the top directory of the mirror, where w3mir will find it when it
-starts.  Please refer to the <a href="#contents">contents</a> for how
-to handle a specific problem with a configuration file.
+mirror something with server side image-maps, redirects or
+authentication you have to write a configuration file for w3mir.  This
+is what w3mir is good at, compared to wget.  Writing the file is not
+hard, and there are two example files in the w3mir distribution.  It
+will also be explained here.  The configuration file is typically
+called <tt>.w3mirc</tt> (<tt>w3mir.ini</tt> on win32 machines), and
+can be written with a simple text editor.  It is kept in the top
+directory of the mirror, where w3mir will find it when it starts.
+Please refer to the <a href="#contents">contents</a> for how to handle
+a specific problem with a configuration file.
 
 <hr>
 
@@ -216,11 +220,11 @@ only files I want?</a></h3>
 
 <p>To control what files w3mir copies you can use the
 <tt>Ignore:</tt>, <tt>Fetch:</tt>, <tt>Ignore-RE:</tt> and
-<tt>Fetch-RE:</tt> directives in the configuration file.  The
+<tt>Fetch-RE:</tt> directives in the configuration file.  The embeded
 references to any file you chose to ignore, i.e., not copy, will point
 at the original site, <em>not</em> to the mirror.  This means that the
-mirror user may still get ahold of the file simply by clicking if she
-so desires
+mirror user may still get ahold of the file from the original source
+by simply clicking if she so desires.
 
 <p>If a site contains huge .wav audio files that you are not
 interested in you put
@@ -229,9 +233,9 @@ interested in you put
 Ignore: *.wav
 </pre>
 
-<p>in the configuration file.  You may ignore as many different filename
-patterns as you want.  If you are mirroring a site you want very few,
-specific files from, say all HTML (named
+<p>in the configuration file.  You may ignore as many different
+filename patterns as you want.  If you are mirroring a site you want
+very few, specific files from, say all HTML (named
 <em>something</em><tt>.html</tt>) and all Mpeg video files (named
 <em>something</em><tt>.mpg</tt>) you can write this:
 
@@ -242,11 +246,12 @@ Ignore: *
 </pre>
 
 <p>W3mir will test each filename against each Fetch/Ignore rule in
-sequence. A html file will match the first line and be fetched. Any
-mpg file will match the second line and be fetched. All other files
-will match the third line, and be ignored. By arranging fetch and
-ignore rules carefully you may retrieve exactly the filename patterns
-you want and not retrieve anything else.
+sequence.  A html file will match the first line and be fetched.  Any
+mpg file will match the second line and be fetched.  All other files
+will match the third line, and be ignored.  This last line is needed
+because the default is to get any files which are not ignored.  By
+arranging fetch and ignore rules carefully you may retrieve exactly
+the filename patterns you want and not retrieve anything else.
 
 <p>If you decide you also want all Mpeg Layer 3 audio files
 (<em>something.</em><tt>mp3</tt>) from the site, after the mirror has
@@ -348,6 +353,29 @@ http://www.ifi.uio.no/
 example above the limit is 4 levels from the top.  The
 <tt>Ignore:</tt> rule that is used to limit recursion depth must be
 listed before any <tt>Fetch:</tt> rules to be effective.
+
+<hr>
+
+<h3><a name="memory">How do I limit w3mirs memory usage?</a></h3>
+
+<p>In a mirror consisting of <em>many</em> files, such as a archive of
+an active mailinglist w3mir will build a very large referer table, in
+part for w3mir to use in the <tt>Referer:</tt> header and in part for
+w3mfix to use in fixing references.
+
+<p>If you disable both the <tt>Referer:</tt> header and don't use
+w3mfix w3mir will not build a referer table.  You do this in the
+configuration file:
+
+<pre>
+Disable-headers: referer
+Fixup: off
+</pre>
+
+<p>Please note the potential problems of turning off fixup described
+earlier in this howto.  There are normaly no problems associated with
+simple sites, but if there are redirects fixup <em>is</em> needed for
+a consistent mirror.
 
 <hr>
 

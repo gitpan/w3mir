@@ -124,7 +124,11 @@ Some of these are speculative, some others are very useful.
   between document retrivals.
 - HTTP/1.1?  HTTP/1.1 servers should do keep-alive even with 1.0 requests.
 - Separate quenes for each server, interleave requests.
+- Authentication is only done if challenged now.  If a document in a
+  directory needs authentication it is very likely that all other documents
+  in that directory and subdirectories require authentication.
 
 * If perl gets threads:
 - Make the retrival and analysis engines separate threads, and have each
   one retrival thread pr. method/server/port and do paralell retrivals.
+- This makes http/1.1 easier too.

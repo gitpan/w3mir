@@ -9,14 +9,17 @@ if they are not there, so if you are unsure what you have you might
 skip this part for now.
 
 - Get libwww-perl from CPAN 
-  (http://www.perl.com/CPAN/modules/by-module/WWW/) or its homepage 
-  (http://www.sn.no/libwww-perl/)
+  (http://www.perl.com/CPAN/modules/by-module/WWW/).  W3mir does not work
+  with LWP 5.40 and later versions.  Please get an earlier version.
 
 - Unpack it:
 
     gzip -dc libwww-perl-*.tar.gz | tar xvBf -
 
-- Install it:
+- Install it.  W3mir does not require the whole libwww-perl package and
+  all the packages that goes with it to work so you may follow these
+  install instructions instead of the libwww-perl install instructions
+  to get an easier install which will work with w3mir.
 
     cd libwww-perl-*
 
@@ -72,7 +75,7 @@ skip this part for now.
 
 INSTALLING W3MIR:
 
-- Get w3mir (http://www.math.uio.no/~janl/w3mir/)
+- Get w3mir (http://www.math.uio.no/~janl/w3mir/ or from CPAN)
 
 - Unpack it:
 
@@ -83,7 +86,7 @@ INSTALLING W3MIR:
      cd w3mir-*
 
   Are you going to install it in the standard perl place? (You
-  probably need to be the system administrator to do this.) If so:
+  probably need to be the system administrator to do this.)  If so:
 
     perl Makefile.PL
 
@@ -102,4 +105,4 @@ w3mir should now be installed correctly.  And if it's installed in
 your path you can even run it.  If you use csh or tcsh you want to run
 'rehash' before the shell will find it.
 
-17/10/97 - Nicolai Langfeldt
+05/01/98 - Nicolai Langfeldt
