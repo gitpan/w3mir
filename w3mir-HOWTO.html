@@ -12,7 +12,7 @@
 <body>
 <h1>W3MIR HOWTO</h1>
 
-<p><b>Corresponding to version 1.0 of w3mir</b>
+<p><b>Corresponding to version 1.0.1 of w3mir</b>
 
 <p>W3mir is a all purpose WWW copying and mirroring program.  Its main
 focus is copying complete directory structures keeping your copy
@@ -63,6 +63,7 @@ class="red">Really!</b>)
   <li><p><a href="#cat">'cat' a file?</a>
   <li><p><a href="#list">list URLs in a document?</a>
   <li><p><a href="#robots">disable robots.txt obedience?</a>
+  <li><p><a href="#corrupt">stop w3mir from corrupting binary files?</a>
   <li><p><a href="#auth">copy a site that wants user-name and password?</a>
   <li><p><a href="#mauth">access a site that wants several different
     user-names and passwords?</a>
@@ -524,6 +525,48 @@ Robot-Rules: off
 <p>in the configuration file.  The robot exclusion standard is
 described in <a
 href="http://info.webcrawler.com/mak/projects/robots/norobots.html">http://info.webcrawler.com/mak/projects/robots/norobots.htm</a>.
+
+<hr>
+
+<h3><a name="corrupt">How do I stop w3mir from corrupting binary
+files?</a></h3>
+
+<p>During the normal course of events w3mir converts the newline
+format of fetched text documents to your systems native newline
+format.  On Unix a newline consists of a single ASCII LF character, on
+Macintoshes it's a single ASCII CR character and on Dos/Windows it's a
+ASCII CR/LF pair.  W3mir understands all these and all text files are
+saved in the format your operating system prefers.  However, sometimes
+a web server will identify a binary file as a text file.  Typical
+examples are a GIF file without the '.gif' name extention or a Java
+.class file which the web server has not been updated to report as
+such.  This happens wery seldom though.
+
+<p>Normaly a binary file is ruined by the automatic newline
+conversions w3mir do.  If you discover a file which is obviously
+ruined in the mirror, but is not ruined when you view it on the
+original site do this:
+
+<ol>
+
+<li>Notify the webmaster on the original site that the file has the
+wrong MIME type
+
+<li>Use the <tt>-nnc</tt> (No Newline Conversion) option on the
+command line, or
+
+<pre>
+Option: no-newline-conv
+</pre>
+
+in the configuration file.
+
+<li>Remove the corrupt file(s).
+
+<li>Run "<tt>w3mir -fs</tt>...", to fetch only
+the deleted file(s) again.
+
+</ol>
 
 <hr>
 

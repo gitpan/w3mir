@@ -1,6 +1,6 @@
 # -*- perl -*-
 # w3http.pm	--- send http requests, janl's 12" mix for w3mir
-#	version 1.0.17
+#
 $VERSION=1.0.17;
 #
 # This implements http/1.0 requests.  We'll have problems with http/0.9
@@ -167,8 +167,8 @@ $agent  = $0; $agent =~ s~.*/~~; # Basename
 $version= "1.0";
 $timeout= 600;			# Timeout while waiting for data/connection
 my $buflen = 4096;		# recv buffer length
-$debug  = 0;			# Debuging output?
-$convert= 1;			# Convert newlines of text docs to local format
+$debug = 0;			# Debuging output?
+$convert = 1;			# Convert newlines of text docs to local format
 $proxyserver='';		# Proxy server.
 $proxyport=0;			# Proxy server port. 0 if no proxy.
 $proxyuser='';			# Username for proxy authentication

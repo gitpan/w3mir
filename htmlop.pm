@@ -1,6 +1,6 @@
 # -*-perl-*-
-# htmlop.pl version 0.2.0: Do operations on html documents.
-$VERSION=0.2.0;
+# htmlop.pl: Do operations on html documents.
+$VERSION=0.2.1;
 #
 # Original source from Bjørn Borud, without it I would not have atempted
 # this. In this incarnation it bears no resemblance to Bjørns code.
@@ -56,6 +56,7 @@ $VERSION=0.2.0;
 # janl    04/01/98 - Added html 4.0 tags and attributes.
 # janl    08/02/98 - Hacked for speed.  Went from 43s to 9s on a 170K
 #		     document -> 0.2.  Thanks to Rune Frøysa who taunted me.
+# janl	  09/04/98 - More tolerant about what constitutes a newline -> 0.2.1
 
 package htmlop;
 
@@ -221,7 +222,7 @@ sub gettoken {
   
   # Skip whitespace and newlines
   return '' unless defined(@_) && defined($_[0]);
-  $_[0] =~ s/^[\n\s]*//;
+  $_[0] =~ s/^[\r\n\s]*//;
   
   return '' if ($_[0] eq '');
   
@@ -233,8 +234,8 @@ sub gettoken {
     $_[0]=$rest;
   } elsif ($c eq '=') {
     $token='=';
-  } else {			# Non quoted material
-    $_[0] =~ m/[=\s\n]/;
+  } else {			# Non-quoted material, ends in whitespace or =
+    $_[0] =~ m/[=\s\n\r]/;
     $_[0] = $&.$';
     $token=$c.$`;
   }
@@ -326,7 +327,7 @@ sub gettag {
   }
 
   # Everything else
-  ($tagn,$tagc) = split(/[\s\n]+/,$tag,2);
+  ($tagn,$tagc) = split(/[\s\n\r]+/,$tag,2);
   $tagn="\U$tagn";
 
   return ($body,$tagn,()) if !defined($tagc);

@@ -223,6 +223,8 @@ use lib '/hom/janl/lib/perl';
 #   janl 20/02/98 -- w3http updated to handle complex content-types.
 #		  -- Fix wild_re more, bug noted by James Dumser
 #		  -- 1.0pre3
+#   janl 18/03/98 -- Version 1.0 is released
+#   janl 09/04/98 -- Added feature so user can disable newline conversion
 #
 # Variable name discipline:
 # - remote, umodified URL.  Variables prefixed 'rum_'
@@ -301,8 +303,8 @@ my $fixopen=0;			# Fixup files open?
 my $indexname='index.html';
 
 my $VERSION;
-$VERSION='1.0';
-$w3http::agent = my $w3mir_agent = "w3mir/$VERSION-18-3-1998";
+$VERSION='1.0.1';
+$w3http::agent = my $w3mir_agent = "w3mir/$VERSION-11-4-1998";
 my $iref='(commandline)';	# Initial referer
 
 # Derived settings	
@@ -383,6 +385,7 @@ my $edit;		# Edit doc? Remove <!--NOMIRROR>...<!--/NOMIRROR-->
 my $header;		# Text to insert in header
 my $lc=0;		# Convert urls/filenames to lowercase?
 my $fetch=0;		# What to fetch: -1: Some, 0: not modified 1: all
+my $convertnl=1;	# Convert newlines?
 
 # Non text/html formats we can extract urls from.  Function must take one
 # argument: the filename.
@@ -414,6 +417,9 @@ usage() unless parse_args(@ARGV);
     $nodelete{$w3mirc}=1;
   }
 }
+
+# Are we converting newlines today?
+$w3http::convert=0 unless $convertnl;
 
 if ($chdirto) {
   &mkdir($chdirto.'/this-is-not-created-odd-or-what');
@@ -627,21 +633,25 @@ sub get_document {
   # then we get the file unconditionally.  Otherwise we only want it
   # if it's updated.
 
-  if (-f $lf_url) {
-    if ($fetch==-1) {
-      print STDERR "w3mir: ".($infoloss?$rum_url_o->as_string:$lf_url).
-	", already have it" if $verbose>=0;
-      if (!$mine_urls) {
-	# If -fs and the file exists and we don't need to mine URLs
-	# we're finished!
-	warn "Already have it, no mining, returning!\n" if $debug;
-	print STDERR "\n" if $verbose>=0;
-	return;
+  if ($fetch==1) {
+    # Nothing do do?
+  } else {
+    if (-f $lf_url) {
+      if ($fetch==-1) {
+	print STDERR "w3mir: ".($infoloss?$rum_url_o->as_string:$lf_url).
+	  ", already have it" if $verbose>=0;
+	if (!$mine_urls) {
+	  # If -fs and the file exists and we don't need to mine URLs
+	  # we're finished!
+	  warn "Already have it, no mining, returning!\n" if $debug;
+	  print STDERR "\n" if $verbose>=0;
+	  return;
+	}
+	$w3http::result=1304;	# Pretend it was 'not modified'
+	$do_query=0;
+      } else {
+	push(@EXTRASTUFF,$w3http::IFMODF,$lf_url);
       }
-      $w3http::result=1304;	# Pretend it was 'not modified'
-      $do_query=0;
-    } else {
-      push(@EXTRASTUFF,$w3http::IFMODF,$lf_url);
     }
   }
 
@@ -1074,8 +1084,8 @@ sub mirror {
 
     @new_rum_urls=();
 
-    # Is the URL quene empty? Are there outstanding retries? 
-    # Refill the quene from the retry list.
+    # Is the URL quene empty? Are there outstanding retries?  Refill
+    # the quene from the retry list.
     if ($#rum_quene<0 && $retry-->0) {
       foreach $rum_url_o (keys %rum_urlstat) {
 	$rum_url_o = url $rum_url_o;
@@ -1483,7 +1493,7 @@ sub write_page {
 	warn "\nw3mir: can't open $lf_name for writing: $!\n";
 	return;
       }
-      binmode PAGE unless $w3http::plaintext;
+      binmode PAGE if !$w3http::plaintext || !$convertnl;
       if ($$page_ref ne '') {
 	print PAGE $$page_ref || die "w3mir: Error writing $lf_name: $!\n";
       }
@@ -1774,7 +1784,7 @@ sub parse_args {
       &version,next if $f eq 'v';		# Version
       $pause=shift,next if $f eq 'p';		# Pause between requests
       $retryPause=shift,next if $f eq 'rp';	# Pause between retries.
-      $s=2,$w3http::convert=0,next if $f eq 'f'; # Forget
+      $s=2,$convertnl=0,next if $f eq 'f';	# Forget
       $retry=shift,next if $f eq 't';		# reTry
       $list=1,next if $f eq 'l';		# List urls
       $iref=shift,next if $f eq 'ir';		# Initial referer
@@ -1786,8 +1796,9 @@ sub parse_args {
       $cache_header = 'Pragma: no-cache',next if $f eq 'pflush';
       $w3http::agent=$w3mir_agent=shift,next if $f eq 'agent';
       $abs=1,next if $f eq 'abs';
-      $batch = 1,next if $f eq 'B';
+      $convertnl=0,$batch=1,next if $f eq 'B';
       $read_urls = 1,next if $f eq 'I';
+      $convertnl=0,next if $f eq 'nnc';
 
       if ($f eq 'lc') {
 	if ($i == 1) {
@@ -2096,7 +2107,7 @@ sub parse_cfg_file {
 	if ($i==1) {
 	  $nval=nway($val,'recurse','no-date-check','only-nonexistent',
 		     'list-urls','lowercase','remove','batch','read-urls',
-		     'abs');
+		     'abs','no-newline-conv');
 	  $r=1,next if $nval==0;
 	  $fetch=1,next if $nval==1;
 	  $fetch=-1,next if $nval==2;
@@ -2108,9 +2119,10 @@ sub parse_cfg_file {
 	    next ;
 	  }
 	  $remove=1,next if $nval==5;
-	  $batch=1,next if $nval==6;
+	  $convertnl=0,$batch=1,next if $nval==6;
 	  $read_urls=1,next if $nval==7;
 	  $abs=1,next if $nval==8;
+	  $convertnl=0,next if $nval==9;
         } else {
 	    die "w3mir: options must be the first directive in the config file.\n";
 	}
@@ -2292,6 +2304,7 @@ sub usage {
 	-s		- Send output to stdout instead of file
 	-t <n>		- How many times to (re)try getting a failed doc?
         -umask <umask>  - Set umask for mirroring, must be usual octal format.
+	-nnc		- No Newline Conversion.  Disable newline conversions.
 	-v		- Show w3mir version.
 ';
 }
@@ -2328,7 +2341,10 @@ L</CONFIGURATION-FILE> secton.
 B<w3mir>s default behavior is to do as little as possible and to be as
 nice as possible to the server(s) it is getting documents from.  You
 will need to read through the options list to make B<w3mir> do more
-complex, and, useful things.
+complex, and, useful things.  Most of the things B<w3mir> can do is
+also documented in the w3mir-HOWTO which is available at the B<w3mir>
+home-page (F<http://www.math.uio.no/~janl/w3mir/>) as well as in the
+w3mir distribution bundle.
 
 =head1 DESCRIPTION
 
@@ -2405,6 +2421,19 @@ Disable Robot Rules.  The robot exclusion standard is described in
 http://info.webcrawler.com/mak/projects/robots/norobots.html.  By
 default B<w3mir> honors this standard.  This option causes B<w3mir> to
 ignore it.
+
+=item B<-nnc>
+
+No Newline Conversion.  Normally w3mir converts the newline format of
+all files that the web server says is a text file.  However, not all
+web servers are reliable, and so binary files may become corrupted due
+to the newline conversion w3mir performs.  Use this option to stop
+w3mir from converting newlines.  This also causes the file to be
+regarded as binary when written to disk, to disable the implicit
+newline conversion when saving text files on most non-Unix systems.
+
+This will probably be on by default in version 1.1 of w3mir, but not
+in version 1.0.
 
 =item B<-R>
 
@@ -2596,7 +2625,7 @@ keywords are not case-sensitive, but the arguments I<might> be.
 
 =over 4
 
-=item Options: I<recurse> | I<no-date-check> | I<only-nonexistent> | I<list-urls> | I<lowercase> | I<remove> | I<batch> | I<input-urls>
+=item Options: I<recurse> | I<no-date-check> | I<only-nonexistent> | I<list-urls> | I<lowercase> | I<remove> | I<batch> | I<input-urls> | I<no-newline-conv>
 
 This must be the first directive in a configuration file.  
 
@@ -2633,6 +2662,10 @@ see B<-B> option.
 =item I<input-urls>
 
 see B<-I> option.
+
+=item I<no-newline-conv>
+
+see B<-nnc> option.
 
 =back
 
