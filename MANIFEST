@@ -7,6 +7,7 @@ README
 example.cfg
 multiscope.cfg
 w3mir.PL
+w3mfix.PL
 htmlop.pm
 w3http.pm
 w3pdfuri.pm

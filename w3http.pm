@@ -1,6 +1,6 @@
 # -*- perl -*-
 # w3http.pm	--- send http requests, janl's 12" mix for w3mir
-#	version 1.0.14
+#	version 1.0.15
 #
 # This implements http/1.0 requests.  We'll have problems with http/0.9
 # This is in no way specific to w3mir.
@@ -96,6 +96,10 @@
 #			longstanding bug in the newline conversion bit.
 #			-> 1.0.13
 #     janl 06/06/97 -- Demand Loading of MIME::BASE64 -> 1.0.14
+#     janl 01/12/97 -- FAT filesystems drops LSB of modtime.  Patch from
+#			Greg Lindhorst (gregli@microsoft.com)
+#                   -- whoami does not exist on win32, hardwire a default
+#			value (unknown) (also Greg L.) -> 1.0.15
 
 package w3http;
 
@@ -146,21 +150,21 @@ my $thishost = hostname();
 my $proto = getprotobyname("tcp");
 
 (my $name, undef) = gethostbyname($thishost);
-chomp(my $user = `whoami`);
+chomp(my $user = $ENV{'LOGNAME'} || $ENV{'USER'} || `whoami` || 'unknown');
 my $from   = "$user\@$name";
 
 my $nl = "\r\n";
 # Default values, change by assignment in using-program.
 $agent  = $0; $agent =~ s~.*/~~; # Basename 
 $version= "1.0";
-$timeout= 600;		# Timeout while waiting for data/connection
+$timeout= 600;			# Timeout while waiting for data/connection
 my $buflen = 4096;		# recv buffer length
 $debug  = 0;			# Debuging output?
 $convert= 1;			# Convert newlines of text docs to local format
 $proxyserver='';		# Proxy server.
-$proxyport=0;		# Proxy server port. 0 if no proxy.
+$proxyport=0;			# Proxy server port. 0 if no proxy.
 $xfbytes=0;			# 0 bytes transfered, cumulative
-$headbytes=0;		# 0 bytes of headers, cumulative
+$headbytes=0;			# 0 bytes of headers, cumulative
 $doclen=0;			# 0 bytes in doc, pr. document
 my $tmpfile="w3mir.tmp.$$";	# Temporary filename
 $verbose=0;			# Verbosenes, 0: silent, 1: progress info
@@ -177,6 +181,10 @@ $IFMODF = 102;			# If-modified after file: Arg: local-file-name
 $AUTHORIZ= 103;			# Basic authorization. Arg: 'user:password'
 $REFERER = 104;			# Referer: Arg: Referer list
 $SAVEBIN = 105;			# Write binary files to disk. Arg: File name
+				# If this opcode is used then main must provide
+				# a &main::movefile(oldname,newname) procedure
+				# that handles moving the tmp file to the
+				# final name/location.
 $ACCEPT  = 106;			# Accept header value: Arg: value
 $NOUSER  = 107;			# Don't insert user header.  Arg: none
 $FREEHEAD= 999;			# Freeform header, one line.  Arg: header
@@ -609,6 +617,15 @@ sub last_modified {
   # timestamp.
   
   my(@tmp) = stat($_[0]);	# file doesn't exist ok to fetch
+
+  # FAT file systems strip the LSB of the file time.  Add it back in
+  # here before asking the server about a modified file.  The only way
+  # this can fail is if the newer server file was saved one second
+  # after the first version (very unlikely).  This isn't needed for
+  # NTFS file systems, but there is no good portable Perl way to
+  # determine the file system type.
+  $tmp[9] = $tmp[9] | 1 if ( $main::win32 );
+
   # now we got the last modified in a 32 bit integer.  time to convert
   # it and return
   return time2str($tmp[9]);

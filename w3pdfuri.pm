@@ -22,7 +22,7 @@ use strict;
 sub list ($) {
   my ($file) = @_;
 
-  my @urls;
+  my @urls=();
   local($/)="\r";
 
   unless (open(PDF,"< $file")) {

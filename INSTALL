@@ -5,9 +5,10 @@ instructions if you know how)
 
 INSTALLING PREREQUISITES:
 
-The prerequisite is libwww-perl, and possebly MIME-Base64.  The w3mir
-install procedure will check for their presence and complain if they
-are not there, so you can skip to 'INSTALLING W3MIR' if you're unsure.
+The prerequisites are the perl packages libwww-perl, and MIME-Base64.
+The w3mir install procedure will check for their presence and complain
+if they are not there, so if you are unsure what you have you might
+skip this part for now.
 
 - Get libwww-perl from CPAN 
   (http://www.perl.com/CPAN/modules/by-module/WWW/) or its homepage 
@@ -26,24 +27,25 @@ are not there, so you can skip to 'INSTALLING W3MIR' if you're unsure.
 
     perl Makefile.PL
 
-  If not
+  If not (if you are a user):
 
     perl Makefile.PL PREFIX=/some/dir
 
-  /some/dir could be ~ (as in your home directory).  This might
-  produce some complaints.  A standard perl instalation will typically
-  get messages about missing these modules:  IO::Socket, NET::FTP and
-  MD5.  None of these are needed to run w3mir and so any error
-  messages about these can be ignored.
+  /some/dir could be ~ (as in your home directory).
+
+  This step might produce some complaints;  A standard perl
+  installation will typically get messages about missing these
+  modules: IO::Socket, NET::FTP and MD5.  None of these need be
+  installed to run w3mir and so any error messages about these may
+  safely be ignored.
 
     make
     make test      (robot/ua and local/http might fail, that's OK)
     make install
 
-  Now libwww-perl should be installed and working :-)
+  Now libwww-perl should be installed and working.
 
-- If you got a libwww-perl version later than 5.08 you also have to
-  get the MIME-Base64 package
+- You also have to get the MIME-Base64 package
   (http://www.perl.com/CPAN/modules/by-module/MIME/)
 
 - Unpack it:
@@ -82,12 +84,12 @@ INSTALLING W3MIR:
 
      cd w3mir-*
 
-  Are you going to install it in the standard perl place? (You need to
-  be the system administrator to do this.) If so:
+  Are you going to install it in the standard perl place? (You
+  probably need to be the system administrator to do this.) If so:
 
     perl Makefile.PL
 
-  If not:
+  If not (if you're a user):
 
     perl Makefile.PL PREFIX=/some/dir
 
@@ -101,3 +103,5 @@ INSTALLING W3MIR:
 w3mir should now be installed correctly.  And if it's installed in
 your path you can even run it.  If you use csh or tcsh you want to run
 'rehash' before the shell will find it.
+
+17/10/97 - Nicolai Langfeldt

@@ -5,11 +5,7 @@ See http://www.math.uio.no/~janl/w3mir/ for propaganda.
 --------------------------------------------------------------------------
 FAQS:
 
-Q: W3mir takes a long time between each document it fetches.
-A: Yes, it's being nice to the server, sleeping 30 seconds between
-   each connection.  See -p switch.
-
-Q: Where can I get w3mir?
+Q: Where can I get a new version of w3mir?
 A: http://www.math.uio.no/~janl/w3mir/
 
 Q: Are there any mailing lists?
@@ -37,23 +33,42 @@ A: It does handle client side imagemaps, but not server side imagemaps.
    original site:
      Ignore: *.map
 
+Q: Does it handle Applets/java/activeX?
+A: Only if the "codebase" directory is browseable and contains all
+   objects the applet needs, and if all the other URL attributes in the
+   OBJECT/APPLET tag are relative to the codebase.  Support for this
+   will be made more complete in a (near) future release.
+
+Q: Does it handle CSSes (Cascading Style Sheets)?
+A: Limited support, in the sense that the CSSes are retrived but are not
+   examined to find and/or edit URLs.  <style> tags are also handled
+   in the sense that w3mir does not do _anything_ to them, except making
+   sure they are not damaged.  w3mir will be extended to support
+   CSSes more fully in the near future.
+
+Q: Does it handle scripts?
+A: No.   w3mir does not damage scripts, but they are not executed either,
+   and URLs embeded in scripts will not be found.
+
 --------------------------------------------------------------------------
 BUGS:
 
-- None :-)
+- -lc switch does not work too well.
 
 Please see below for how to report bugs.
 
 --------------------------------------------------------------------------
 FEATURES (NOT bugs):
 
-- Urls with two /es ('//') in the path component does not work
+- URLs with two /es ('//') in the path component does not work
   as some might expect.  According to my reading of the http/url spec.
   it is an illegal construct, which is a Good Thing, because I don't
   know how to handle it if it's legal.
-- If you start at http://foo/bar/ index.html might be gotten twice.
-  We don't know if the server serves Welcome.html or index.html when a
-  directory is requested.  w3mir assumes index.html though.
+- If you start at http://foo/bar/ then index.html might be gotten twice.
+- Some documents point to a point above the server root, i.e.,
+  http://some.server/../stuff.html.  Netscape, and other browsers, in
+  defiance of the URL standard documents will change the URL to
+  http://some.server/stuff.html.  W3mir will not.
 
 --------------------------------------------------------------------------
 MAIL LISTS, REPORTING BUGS:
@@ -97,41 +112,26 @@ Currently I'm preparing for version 1 of w3mir.
 
 * TODO for version 1:
 
-- Documentation.
-- A max depth switch, implement with ignore rule?
-- -B switch to batch get a series of URLs (given on commandline)
-  The files will _not_ be processed.
-- -I switch to combine with -B to read URLs from standard-input.
-- -B combined with -r should supress any other processing than url
-  listing.
-- Re-introduce -abs
-- A way, in the config file to quene more than one 'root' document.  Say
-  with 'Quene:' and 'Also-Quene:' which is like 'Also:' and 'Quene:'
 - Fix bugs discovered.
-
-- Ability to dump the referers list to file, needed for below program.
-- Ability to dump the redirects encountered to file, also needed for 
-  program below.
-
-This will be implemented in a separate program, I think:
-- Fixup _all_ links to documents that are redirected somewhere else.
-  This will make a mirror mirrored from a document scope which contains
-  browsable.
-- Add switch to specify name of file served when directory is requested.
-  Two widely used names are 'index.html' (originated in NCSA HTTPD I think) 
-  and 'Welcome.html' (the Cern HTTPD way).  Should be acompanied by code to
-  change foo/ urls too foo/index.html in the html docs, that way they are
-  browseable in filesystems (i.e. on CD-ROM).
-
+- Release 1.0
 
 * TODO, after version 1:
 
 Some of these are speculative, some others are very useful.
 
+- CSS parsing/support at the same level as HTML
+- Full support for APPLETS/OBJECT tags.
+- FTP support (easy if through a http style ftp proxy, but is that what
+  we want?)
+- Retrive recursively until N-th order links are reached.  This
+  differs siginificantly from directory recursion which we do now.  When
+  this is done w3mir should also know the difference between inline and
+  external links, inline links should always be retrived.  Trivia question:
+  What order is needed to reach every findable document on the web from
+  Yahoo?
+- SSL support
 - Integrate with cvs or rcs (or other version controll system) to make
   retriver able to reproduce mirrored site for any given date.
-- Ability to check for existense of documents outside scope, for link 
-  checking (through a 'second-order' list)
 - Some text processing:  Adding and removing text/sgml comments when suitable
   options and tags are found.  Suggested by Ed Jordan.
 - Feature to add retrival date in html comment or document text
@@ -142,8 +142,7 @@ Some of these are speculative, some others are very useful.
   a way to get only one version of documents provided in multipele versions,
   something like multi axis preference list to get only the most attractive
   version of the doc.
-- A reverse hash so we can find out what url a file came from, and detect
-  namespace colitions if desierable (could issue warning, not get doc...)
+- Logging of retrivals to file, need to change every print to a functioncall.
 - Your suggestion here.
 
 * TODO, http related
@@ -151,3 +150,8 @@ Some of these are speculative, some others are very useful.
   between document retrivals.
 - HTTP/1.1?  HTTP/1.1 servers should do keep-alive even with 1.0 requests.
 - Separate quenes for each server, interleave requests.
+
+* If perl gets threads:
+- Make the retrival and analysis engines separate threads, and have each
+  one retrival thread pr. method/server/port and do paralell retrivals.
+

@@ -18,7 +18,7 @@ use ExtUtils::MakeMaker;
 WriteMakefile(
     NAME	=> 'w3mir',
     VERSION_FROM => 'w3mir.PL', # finds $VERSION
-    EXE_FILES => [ 'w3mir' ],
+    EXE_FILES => [ 'w3mir', 'w3mfix' ],
     dist => { COMPRESS => 'gzip -f9', SUFFIX => 'gz' },
 );
 

@@ -1,5 +1,19 @@
 In this file we list changes according to some vague rules.
 
+* About 0.99b3:
+
+- .w3mirc (w3mir.ini on win32) is read if it exists in the directory
+  w3mir is started up.
+- w3mfix external 'fixup' program fixes mirrors so they are a lot more
+  browseable in filesystems.  It also patches up redirects.  Most people
+  will be happy with 'fixup: run' in the config file.  See w3mir
+  and w3mfix documentation for further details.
+  - w3mfix uses same config file as w3mir
+  - Do not mix 'fixup' and 'cd'.
+- Use of 'cd' is discouraged and w3mir will say so unless -q (quiet)
+- Support for HTML 4.0, better support for Netscape and IE extentions
+- All known bugs fixed, all 5 patches previously on the web are in this.
+
 * About 0.99a3:
 
 Feature/Code freeze time.  Now we only debug.  Baring serious problems

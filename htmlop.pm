@@ -1,5 +1,5 @@
 # -*-perl-*-
-# htmlop.pl version 0.1.16: Do operations on html documents.
+# htmlop.pl version 0.1.18: Do operations on html documents.
 #
 # Original source from Bjørn Borud, without it I would not have atempted
 # this. In this incarnation it bears no resemblance to Bjørns code.
@@ -44,6 +44,15 @@
 #			-> 0.1.15
 # janl	  30/07/97 - Now supporting <BASE> tag.
 #		   - Added TAGCALLBACK opcode -> 0.1.16
+# janl    16/10/97 - Empty string must be quoted, reported by Bart Barenburg
+#			-> 0.1.17
+# janl	  01/12/97 - More HTML URL tags/attributes recognized (Greg Lindhorst) 
+# janl	  13/12/97 - Can't delete the whole <BASE> tag.  Netscape has
+#		     extended it for frame use.  So only delete the HREF
+#		     attr -> 0.1.18
+# janl    01/01/98 - Realized applet/object support can't work and changed
+#		     so it's able to work, if conditions are right.
+# janl    04/01/98 - Added html 4.0 tags and attributes.
 
 package htmlop;
 
@@ -141,18 +150,47 @@ $debug=0;			# Debugging level in this package
 # reference.
 
 my(%urls) = (
+	HEAD    => [ 'PROFILE' ],
+        BLOCKQUOTE => [ 'CITE' ],
+        Q 	=> [ 'CITE' ],
+        INS	=> [ 'CITE' ],
+	DEL	=> [ 'CITE' ],
 	A	=> [ 'HREF' ] ,
-	IMG	=> [ 'SRC' ,'LOWSRC' ,'USEMAP' ] ,
+	IMG	=> [ 'SRC' ,'LOWSRC' ,'USEMAP', 'LONGDESC' ] ,
 	EMBED	=> [ 'SRC' ],
-	FRAME	=> [ 'SRC' ],
+	FRAME	=> [ 'SRC', 'LONGDESC' ],
+        IFRAME  => [ 'SRC', 'LONGDESC' ],
 	BODY	=> [ 'BACKGROUND' ],
 	AREA	=> [ 'HREF' ],
 	LINK	=> [ 'HREF' ],
-	APPLET	=> [ 'CODE' ,'CODEBASE'], # This probably dosn't work too well
-	INPUT	=> [ 'SRC' ],
+
+	# The APPLET and OBJECT tags do not fit into my model for URL
+	# manipulation.  Just looking at CODEBASE might work, if the
+	# URL it names is a browseable directory...
+	# Otherwise interpretation of 
+	APPLET	=> [ 'CODEBASE' ],  # If the codebase dir is browseable
+	OBJECT  => [ 'CODEBASE' ],  # Ditto.  Can't handle DATA attribute now
+
+	INPUT	=> [ 'SRC', 'USEMAP' ],
 	MAP	=> [ 'HREF' ],
-	SCRIPT	=> [ 'SRC' ],
+	SCRIPT	=> [ 'SRC', 'FOR' ],# 'FOR's semantics is not defined, the
+				    # attribute is just reserved for possible
+				    # future use...
+	BGSOUND => [ 'SRC' ],
+	FORM	=> [ 'ACTION' ],    # Is this asking for trouble?
+				    # Maybe it should just be absolutized...
 	);
+
+my(%relative) = (
+	# Identify URL attributes containing urls that are relative to
+	# the named URL attribute.   When processing these they should
+        # be absolitized and then relativized relative to the BASE attribute.
+        # This is just window dressing for now; it is not used for anything.
+
+	# ARCHIVE is really a URI _list_.
+	CODEBASE => [ 'CLASSID', 'DATA', 'CODE', 'ARCHIVE' ],
+        );
+
 
 # Tags that enclose bits we want to leave absolutely alone because they
 # are not very like HTML, or some such.
@@ -233,6 +271,7 @@ sub gettag {
   my(%attr,$tagn,$tagc,$body,$tag);
   
   unless ($_[0] =~ s/([^<]*)\<([^>]*)>//) {
+    # EOF
     $body=$_[0];
     $_[0]='';
     return ($body,'',());
@@ -240,8 +279,7 @@ sub gettag {
   $body=$1;
   $tag=$2;
   
-  #print "BODY: $body\n";
-  #print "COMPLETE TAG: $tag\n";
+  print STDERR "******COMPLETE TAG: $tag\n" if $debug;
   
   # Examine tag contents
   if ($tag =~ /^([!?]--)/ || $tag =~ /^(!\w+)/) {
@@ -367,15 +405,17 @@ sub process {
       $newdoc.=$textpart if $retdoc;
 
       if ($tagname eq 'BASE') {
-	if (defined($attrval{'HREF'})) {
+	if (exists($attrval{'HREF'})) {
 	  if ($origin) {
 	    $baseurl=(url($attrval{'HREF'})->abs($origin,1))->as_string;
 	  } else {
 	    $baseurl=$attrval{'HREF'};
 	  }
+	  # Get rid of the HREF attribute.  Netscape 4.0 puts stuff into
+	  # BASE that is not even found in the HTML 4.0 spec.
+	  delete $attrval{'HREF'};
 	  print STDERR "\nBase tag: $baseurl\n" if $debug;
 	}
-	next;  # Get rid of base tags
       }
 
       # URL processing
@@ -392,7 +432,7 @@ sub process {
 	  $i++;
 	  # Want it to be a URL object
 	  $origin=url $origin unless ref $origin;
-	  print STDERR 'ABS: ',$origin->as_string,"\n" if $debug;
+	  # print STDERR 'ABS: ',$origin->as_string,"\n" if $debug;
 	  next unless defined($urls{$tagname});
 	  foreach $attr (@{$urls{$tagname}}) {
 	    $attrval{$attr}=
@@ -419,7 +459,7 @@ sub process {
 	      if defined($attrval{$attr});
 	  }
 	} elsif ($arg == $LIST) {
-	  warn "LIST;\n" if $debug;
+	  # warn "LIST;\n" if $debug;
 	  next unless exists($urls{$tagname});
 	  foreach $attr (@{$urls{$tagname}}) {
 	    push(@urllist,$attrval{$attr}) if defined($attrval{$attr});
@@ -446,7 +486,7 @@ sub process {
 	} elsif ($arg == $NODOC) {
 	  warn "NODOC;\n" if $debug;
 	} elsif ($arg == $CANON) {
-	  warn "CANON;\n" if $debug;
+	  # warn "CANON;\n" if $debug;
 	} elsif ($arg == $URLPROC || $arg == $NREL) {
 	  # Apply a function to all urls.
 	  # NREL = Special case of $URLPROC, apply internal function.
@@ -483,14 +523,17 @@ sub process {
       }
       last;
     }
+
     # That ends URL processing
 
-    # Was this a verbatim leadin tag?
-    # If yes, atempt to fish out text between here and the end tag,
-    # (minimal match) and substitute it with nothing.  The end tag is kept
+    # Was this a verbatim leadin tag?  If yes, atempt to fish out text
+    # between here and the end tag, (minimal match) and substitute it
+    # with nothing.  The end tag is kept.  And the fished out text is
+    # re-inserted in the result with no changes.
+
     $verbatim=$1 
       if defined($verbatim{$tagname}) &&
-	($doc =~ s/^(.*)($verbatim{$tagname})/$2/is);
+	($doc =~ s/^(.*?)($verbatim{$tagname})/$2/is);
     
     # Tack on the tag, if wanted.
     if ($retdoc) {
@@ -500,7 +543,7 @@ sub process {
 	  $newdoc.=' '.$attr;
 	  if (defined($cont=$attrval{$attr})) {
 	    $Q='';
-	    $Q='"' if ($cont =~ m/[^\w\d]/);
+	    $Q='"' if ($cont =~ m/[^\w\d]/ || $cont eq '');
 	    $newdoc.='='.$Q.$cont.$Q;
 	  }
 	}
@@ -508,10 +551,9 @@ sub process {
 	$verbatim='';
       }
     }
-    print "NEW: $newdoc\n" if $debug > 2;
+    print STDERR "NEW: $newdoc\n" if $debug > 2;
   }
   $newdoc.="</HTML>\n" if ($canon && !$endhtml);
-  $newdoc =~ s/\<BASE.*\>//ig if ($canon);
   return ($newdoc,@urllist);
 }
 

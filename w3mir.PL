@@ -66,14 +66,14 @@ sub read_makefile {
 }
 
 __END__
-#!/local/bin/perl5
-# Perl 5.002 or later.  w3mir is mostly tested with perl 5.003
+#!/local/bin/perl5 -w
+# Perl 5.002 or later.  w3mir is mostly tested with perl 5.004
 #
 # You might want to change or comment out this:
 use lib '/hom/janl/lib/perl';
 #
-# Once upon a time this was Oscar Nierstrasz's <oscar@cui.unige.ch> 
-# htget script.
+# Once upon a long time ago this was Oscar Nierstrasz's
+# <oscar@cui.unige.ch> htget script.
 #
 # Retrieves HTML pages, creating local copies in the _current_ 
 # directory. The script will check for the last-modified stamp on the
@@ -126,7 +126,7 @@ use lib '/hom/janl/lib/perl';
 #   janl 19/03/96 -- Worked through the code for handling not-modified 
 #    		     documents, it was a bit shabby after htmlop was intro'ed.
 #   janl 20/03/96 -- -l fix
-#   janl 23/04/96 -- Added -fs by request.
+#   janl 23/04/96 -- Added -fs by request (by Rik Faith)
 #   janl 16/05/96 -- Made -R mandatory, added use and support for
 #			w3http::SAVEBIN
 # szurgot 19/05/96-- Win95 adaptions.
@@ -148,9 +148,10 @@ use lib '/hom/janl/lib/perl';
 #    ark 24/09/96 -- Simple facilities to edit the incomming file(s)
 #   janl 27/09/96 -- Added switch to enable <!--NOMIRROR--> editing and
 #		     foolproofed ark's patch a bit.
-#   janl 02/10/96 -- Added -umask switch.  Redirected documents did not
-#		     have a meaningful referer value (it was undefined).
-#		     Got w3mir into strict discipline, found some typos...
+#   janl 02/10/96 -- Added -umask switch.
+#		  -- Redirected documents did not have a meaningful referer
+#		     value (it was undefined).
+#		  -- Got w3mir into strict discipline, found some typos...
 #   janl 20/10/96 -- Mtime is preserved
 #   janl 21/10/96 -- -lc switch added.  Mtime preservation works better.
 #   janl 06/11/96 -- Treat 301 like 302.
@@ -191,13 +192,32 @@ use lib '/hom/janl/lib/perl';
 #   janl 11/06/97 -- Made :port optional in server part of auth-domain.
 #			Always removing :80 from server part to match netloc.
 #   janl 22/07/97 -- More debugging of rewrite for new features -B, -I.
-#   janl 01/08/97 -- Fixed bug in re quoting for Ignore/Fetch
+#   janl 01/08/97 -- Fixed bug in RE quoting for Ignore/Fetch
 #   janl 04/08/97 -- s/writepage/write_page/g
 #   janl 07/09/97 -- 0.99b1 is released
 #   janl 19/09/97 -- Kaj Hejer discovers omissions in non-html-url-mining code.
 #                 -- 0.99b2 is released
+#   janl 24/09/97 -- Matt Chapman found bug in realm-name extraction.
+#   janl 10/10/97 -- Referer: header supression supressed User: header instead
+#		  -- Added fixup handling, writes .redirs and .referers
+#		     (no dot in win32)
+#  		  -- Read .w3mirc (w3mir.ini on win32) if present
+#		  -- Stop file removal code from removing these files
+#   janl 16/10/97 -- process_tag was mangling url attributes in tags with more
+#		     than one of them.  Problem found by Robert L. Binkley
+#   janl 04/12/97 -- Fixed problem with authentication, misplaced +
+#		  -- default inter-docuent pause is 0.  I figure it's better
+#		     to keep one httpd occupied in a steady stream than to
+#		     wait for it to die before we talk to it again.
+#   janl 13/12/97 -- The arguments to index.html in the form of index.html/foo
+#		     handling code was incomplete.  To make it complete would
+#		     have been hard, so it was removed.
+#		  -- If a URL changes from file to directory or vice versa
+#		     this is now handled.
+#   janl 11/01/98 -- PDF files with no URLs does not cause warnings now.
+#		  -- Close REFERERS and REDIRECTS before calling w3mfix
 #
-# Formalism regarding the 2 namespaces w3mir operates in:
+# Variable name discipline:
 # - remote, umodified URL.  Variables prefixed 'rum_'
 # - local, filesystem.  Variables prefixed 'lf_'.
 # Use these prefixes so we know what we're working with at all times.
@@ -206,7 +226,7 @@ use lib '/hom/janl/lib/perl';
 # The apply rules and scope rules work this way:
 # - First apply the user rules to the remote url.
 # - Check if document is within scope after this.
-# - Then apply w3mir's rules to the result.  This results in the local,
+# - Then apply w3mir's rules to the result.  This results is the local,
 #   filesystem, name.
 #
 # We use features introduced in 5.002.
@@ -220,36 +240,36 @@ BEGIN {
   use Config;
   $win32 = ( $Config{'osname'} eq 'MSWin32' ); 
 }
-# Need EISDIR code
-use POSIX qw(:errno_h);
-# More ways to die
+# More ways to die:
 use Carp;
-# Http module
+# Http module:
 use w3http;
-# html url extraction and manupulation
+# html url extraction and manupulation:
 use htmlop;
-# Extract urls from adobe acrobat pdf files.
+# Extract urls from adobe acrobat pdf files:
 use w3pdfuri;
-# Date computer
+# Date computer:
 use HTTP::Date;
-# URLs
+# URLs:
 use URI::URL;
+#
+use FileHandle;
 
-# Full discipline
+# Full discipline:
 use strict;
 
-# Set params in the http package
+# Set params in the http package, HTTP protocol version:
 $w3http::version="1.0";
 
 # The defaults should be for a robotic http agent on good behaviour.
 my $debug=0;			# Debug level
 my $verbose=0;			# Verbosity level, -1 = quiet, 0 = normal, 1...
-my $pause=30;			# Pause between http requests
+my $pause=0;			# Pause between http requests
 my $retryPause=600;		# Pause between retries. 10 minutes.
-my $retry=3;			# 3 stabs pr. url.
-my $r=0;			# no recursing = absolutify links
-my $remove;			# Remove files that are not there.
-my $s=0;			# save files to disk
+my $retry=3;			# Max 3 stabs pr. url.
+my $r=0;			# Recurse? no recursion = absolutify links
+my $remove=0;			# Remove files that are not there?
+my $s=0;			# 0: save on disk 1: stdout 2: just forget 'em
 my $useauth=0;			# Use authorization
 my %authdata;			# Authorization data
 my $check_robottxt = 1;		# Check robots.txt
@@ -262,11 +282,19 @@ my $read_urls=0;		# Get urls from STDIN?
 my $abs=0;			# Absolutify URLs?
 my $immediate_redir=0;		# Immediately follow a redirect?
 my @root_urls;			# This is where we start, the root documents
+my $chdirto='';			# Place to chdir to after reading config file
+my %nodelete=();		# Files that should not be deleted
 
+# Fixup related things
+my $fixrc='';			# Name of w3mfix config file
+my $fixup=0;			# Do things needed to run fixup
+my $runfix=0;			# Run w3mfix for user?
+
+my $indexname='index.html';
 
 my $VERSION;
-$VERSION="0.99b2";
-$w3http::agent = my $w3mir_agent = "w3mir/$VERSION-19-9-97";
+$VERSION='0.99b3';
+$w3http::agent = my $w3mir_agent = "w3mir/$VERSION-16-1-1998";
 my $iref='(commandline)';	# Initial referer
 
 # Derived settings	
@@ -290,7 +318,6 @@ my $REDIR    = -302;		# Does not exist, redirected
 my $ENOTFND  = -404;		# Does not exist.
 my $OTHERERR = -600;		# Some other error happened
 my $FROBOTS  = -601;		# Forbidden by robots.txt rule
-my $DONTWANT = -602;		# User don't want.
 
 # Directory/files survey:
 my %lf_file;		# What files are present in FS?  Disposition?  One of:
@@ -299,6 +326,11 @@ my $FILEHERE=1;		# File present in filesystem only
 my $FILETHERE=2;	# File present on server too.
 my %lf_dir;		# Number of files/dirs in dir.  If 0 dir is 
 			# eligible for deletion.
+
+my %fiddled=();		# If a file becomes a directory or a directory
+                        # becomes a file it is considered fiddled and
+                        # w3mir will not fiddle with it again in this
+                        # run.
 
 # Bitbucket device, very OS dependent.
 $nulldevice='/dev/null';
@@ -314,7 +346,7 @@ my $rule_code;
 # $_ contain the url to match.  Postfix should return 1, the default
 # is to get the url/file.
 my $rule_prefix='$rule_code = sub { local($_) = shift;'."\n";
-my $rule_postfix=' return 1; } ';
+my $rule_postfix="  return 1;\n}";
 
 # Scope tests generated by URL/Also directives in cfg. The scope code
 # is just like the rule code, but used for program generated
@@ -324,20 +356,20 @@ my $scope_ignore="# Automatic ignore rules for multiscope retrival\n";
 my $scope_code;
 
 my $scope_prefix='$scope_code = sub { local($_) = shift;'."\n";
-my $scope_postfix=' return 0; } ';
+my $scope_postfix="  return 0;\n}";
 
 # Function to apply to urls, se rule comments.
 my $user_apply_code;	# User specified apply code
 my $apply_code;		# w3mirs apply code
 my $apply_prefix='$apply_code = sub { local($_) = @_;'."\n";
 my $apply_lc=' $_ = lc $_; ';
-my $apply_postfix=' return $_; } ';
+my $apply_postfix='  return $_;'."\n}";
 my @user_apply;		# List of users apply rules.
 my @internal_apply;	# List of w3mirs apply rules.
 
-my $infoloss=0;		# 1 if any url translations (which case information
-			# loss) are in effect.  If this is true we use
-			# the SAVEURL operation.
+my $infoloss=0;		# 1 if any URL translations (which cause
+                        # information loss) are in effect.  If this is
+                        # true we use the SAVEURL operation.
 my $list;		# List url on STDOUT?
 my $edit;		# Edit doc? Remove <!--NOMIRROR>...<!--/NOMIRROR-->
 my $header;		# Text to insert in header
@@ -353,15 +385,35 @@ my %knownformats = ( 'application/pdf', \&w3pdfuri::list,
 # Known 'magic numbers' of the known formats.  The value is used as
 # key in %knownformats.  the key part is a exact match for the
 # following <string> beginning at the first byte of the file.
+# This should probably be made more flexible, but not until we need it.
 
 my %knownmagic = ( '%PDF-', 'application/pdf' );
 
 # 
+
 my $iinline='';	# inline RE code to make RE caseinsensitive 
 my $ipost='';	# RE postfix to make it caseinsensitive
 
-
 usage() unless parse_args(@ARGV);
+
+{
+  my $w3mirc='.w3mirc';
+  
+  $w3mirc='w3mir.ini' if $win32;
+  
+  if (-f $w3mirc) {
+    parse_cfg_file($w3mirc);
+    $nodelete{$w3mirc}=1;
+  }
+}
+
+if ($chdirto) {
+  &mkdir($chdirto.'/this-is-not-created-odd-or-what');
+  chdir($chdirto) || 
+    die "w3mir: Can't change working directory to '$chdirto': $!\n";
+}
+
+&open_fixup if $fixup;
 
 # Derive how much document processing we should do.
 $mine_urls=( $r || $list );
@@ -371,7 +423,7 @@ $abs = 1 unless $r;
 print "Absolute references\n" if $abs && $debug;
 
 # Cache_controll specified but proxy not in use?
-die "If you want to control a cache, use a proxy server\n"
+die "If you want to control a cache, use a proxy server!\n"
   if ($cache_header && !$using_proxy);
 
 # Compile the second order code
@@ -431,7 +483,7 @@ $w3http::debug=$debug;
 
 $w3http::verbose=$verbose;
 
-my %rum_referers=();	# Array of referers, key: rum_url_o->as_string
+my %rum_referers=();	# Array of referers, key: rum_url
 my $Robot_Blob;		# WWW::RobotsRules object, decides if rum_url is 
 			# forbidden to access for us.
 my $rum_url_o;		# rum url, mostly the current, the one we're getting
@@ -502,18 +554,26 @@ if ($r) {
   }
 }
 
+&close_fixup if $fixup;
+
 # This should clean up files:
 &clean_disk if $remove;
 
 warn "w3mir: That's all (".$w3http::xfbytes.'+',$w3http::headbytes.
   " bytes of it).\n" unless $verbose<0;
 
+if ($runfix) {
+  warn "Running w3mfix\n";
+  system("w3mfix $fixrc");
+}
+
+exit 0;
 
 sub get_document {
   # Get one document by HTTP ($1).  Save in given filename ($2).
   # Possebly returning references found in the document.  Caller must
   # set up referer array, check wantedness and everything else.  We
-  # handle authentication though.
+  # handle authentication here though.
 
   my($rum_url_o)=shift;
   my($lf_url)=shift;
@@ -562,6 +622,7 @@ sub get_document {
       if (!$mine_urls) {
 	# If -fs and the file exists and we don't need to mine URLs
 	# we're finished!
+	warn "Already have it, no mining, returning!\n" if $debug;
 	print STDERR "\n" if $verbose>=0;
 	return;
       }
@@ -580,12 +641,12 @@ sub get_document {
     if ($www_auth) {
       my($authdata,$method,$realm);
 
-      ($method,$realm)= $www_auth =~ m/^(\S+)\s+realm=\"(\S+)\"/i;
+      ($method,$realm)= $www_auth =~ m/^(\S+)\s+realm=\"([^\"]+)\"/i;
       $method=lc $method;
       $realm=lc $realm;
       die "w3mir: '$method' authentication needed, don't know that.\n"
 	if ($method ne 'basic');
-
+      
       $hostport = $rum_url_o->netloc;
       $authdata=$authdata{$hostport}{$realm} || $authdata{$hostport}{'*'} ||
 	$authdata{'*'}{$realm} || $authdata{'*'}{'*'};
@@ -634,7 +695,7 @@ sub get_document {
 
     print "Result: ",$w3http::result," Recurse: $r, html: ",
     $w3http::plaintexthtml,"\n" 
-      if $debug>=3;
+      if $debug;
 
   } # if $do_query
     
@@ -652,9 +713,9 @@ sub get_document {
 	print STDERR ($process_urls)?", processing":", url mining"
 	  if $verbose>0;
 	  
-	print STDERR "\nurl:'$lf_url'\n" if $debug>=1;
+	print STDERR "\nurl:'$lf_url'\n" if $debug;
 
-	# print "\nMining URLs: $mine_urls, Process: $process_urls\n";
+	print "\nMining URLs: $mine_urls, Process: $process_urls\n" if $debug;
 	    
 	($page,@rum_newurls) = 
 	  &htmlop::process($w3http::document,
@@ -672,14 +733,10 @@ sub get_document {
 			   ():
 			   (
 			    $htmlop::TAGCALLBACK,\&process_tag,$lf_url,
-
-			    # The save operation is not always needed
-			    # $infoloss?($htmlop::SAVEURL,'W3MIR'):(),
-			    # $process_urls?
-			    # ($htmlop::URLPROC,\&process_apply,$lf_url):
-			    # (),
 			    )
 			  );
+
+#	print "URL: ",join("\nURL: ",@rum_newurls),"\n";
 
 	if ($process_urls) {
 	  $page_ref=\$page;
@@ -725,7 +782,7 @@ sub get_document {
       }
     }
 
-    write_page($lf_url,$page_ref);
+    write_page($lf_url,$page_ref,0);
 
     # print "New urls: ",join("\n",@rum_newurls),"\n";
 
@@ -736,7 +793,7 @@ sub get_document {
       $w3http::result==1304) { # 1304 Have it
 
     { 
-      # Easy way out
+      # last = out of nesting
 
       my $rum_urlstat;
       my $rum_newurls;
@@ -751,6 +808,8 @@ sub get_document {
       last unless $mine_urls;
       
       $rum_newurls=get_references($lf_url);
+
+      # print "New urls: ",ref($rum_newurls),"\n";
       
       if (!ref($rum_newurls)) {
 	last;
@@ -809,6 +868,9 @@ sub get_document {
     # document.  That's a ugly feature in some servers.
     $new_rum_url=url $w3http::headval{'location'};
     $new_rum_url=$new_rum_url->abs($rum_url_o);
+
+    print REDIRS $rum_url_o->as_string,' -> ',$new_rum_url->as_string,"\n"
+      if $fixup;
 
     if ($immediate_redir) {
       print STDERR " =>> ",$new_rum_url->as_string,", getting that instead\n";
@@ -928,7 +990,7 @@ sub batch_get {
   if (!defined($lf_url) || $lf_url eq '') {
     ($lf_url=$rum_url) =~ s~/$~~;
     $lf_url =~ s~.*/~~;
-    $lf_url .= '-index.html';
+    $lf_url .= '-$indexname';
   }
 
   warn "Batch get: $rum_url -> $lf_url\n" if $debug;
@@ -964,7 +1026,7 @@ sub mirror {
     next unless robot_check($rum_url_o);
 
     # Figure out the filename for our local filesystem.
-    $lf_url.='index.html' if $lf_url =~ m~/$~ || $lf_url eq '';
+    $lf_url.=$indexname if $lf_url =~ m~/$~ || $lf_url eq '';
     # Make all intermediate directories
     &mkdir($lf_url) if $s==0;
 
@@ -974,11 +1036,11 @@ sub mirror {
 
     if ($r) {
       foreach $rum_ref (@new_rum_urls) {
-	# print "Recursive url: $rum_ref\n";
+	# warn "Recursive url: $rum_ref\n";
 	$new_lf_url=apply($rum_ref);
 	next unless $new_lf_url;
 
-	# print "Want it\n";
+	# warn "Want it\n";
 	$rum_ref =~ s/\#.*$//s;		# Clip off section marks
 	
 	add_referer($rum_ref,$rum_url_o->as_string);
@@ -1053,7 +1115,7 @@ sub get_references {
   # Found a extraction method, apply.
   if ($url_extractor) {
     print STDERR ", mining URLs" if $verbose>=1;
-    return \(&$url_extractor($lf_url));
+    return [&$url_extractor($lf_url)];
   }
 
   if ($page =~ /<HTML/i) {
@@ -1070,6 +1132,44 @@ sub get_references {
 }
 
 
+sub open_fixup {
+  # Open the referers and redirects files
+
+  my $reffile='.referers';
+  my $redirfile='.redirs';
+
+  if ($win32) {
+    $reffile="referers";
+    $redirfile="redirs";
+  }
+
+  $nodelete{$reffile} = $nodelete{$redirfile} = 1;
+
+  open(REDIRS,"> $redirfile") || 
+    die "Could not open $redirfile for writing: $!\n";
+
+  autoflush REDIRS 1;
+
+  open(REFERERS,"> $reffile") ||
+    die "Could not open $reffile for writing: $!\n";
+}
+
+
+sub close_fixup {
+  # Close the fixup data files.  In the case of the referer file also
+  # write the entire content
+
+  my $referer;
+
+  foreach $referer (keys %rum_referers) {
+    print REFERERS $referer," <- ",join(' ',@{$rum_referers{$referer}}),"\n";
+  }
+
+  close(REFERERS) || warn "Error closing referers file: $!\n";
+  close(REDIRS) || warn "Error closing redirects file: $!\n";
+}
+
+
 sub clean_disk {
   # This procedure removes files that are not present on the server(s)
   # anymore.
@@ -1078,6 +1178,11 @@ sub clean_disk {
   #   problems we only do blanket removal IFF all documents were
   #   fetched w/o problems, eventually.  
   # - In any case we can remove files the server said were not found
+
+  # The strategy has three main parts:
+  # 1. Find all files we have
+  # 2. Find what files we ought to have
+  # 3. Remove the difference
   
   my $complete_retrival=1;	# Flag saying IFF all documents were fetched
   my $urlstat;			# Tmp storage
@@ -1087,24 +1192,30 @@ sub clean_disk {
   my $dirs_to_remove;
 
   # For fileremoval code
-  eval "use File::Find;";
+  eval "use File::Find;" unless defined(&find);
 
   die "w3mir: Could not load File::Find module.  Don't use -R switch.\n"
     unless defined(&find);
   
   # This to shut up -w
   $lf_dir=$File::Find::dir;
-  
-  find(\&wanted,'./');
-  
+
+  # ***** 1. Find out what files we have *****
+  #
+  # This does two things:  For each file or directory found:
+  # - Increases entry count for the container directory
+  # - If it's a file: $lf_file{relative_path}=$FILEHERE;
+  find(\&find_files,'./');
+
+  # ***** 2. Find out what files we ought to have *****
+  #
   # First we loop over %rum_urlstat to determine what files are not
   # present on the server(s).
-  
   foreach $rum_url (keys %rum_urlstat) {
     # Figure out name of local file from rum_url
     next unless defined($lf_url=apply($rum_url));
 
-    $lf_url.='index.html' if $lf_url =~ m~/$~ || $lf_url eq '';
+    $lf_url.=$indexname if $lf_url =~ m~/$~ || $lf_url eq '';
 
     # find prefixes ./, we must too.
     $lf_url="./".$lf_url;
@@ -1123,8 +1234,7 @@ sub clean_disk {
       # Present on server.  Keep.
       $lf_file{$lf_url}=$FILETHERE;
       next;
-    } elsif ($urlstat==$ENOTFND || $urlstat==$NEVERMIND || 
-	     $urlstat==$DONTWANT ) {
+    } elsif ($urlstat==$ENOTFND || $urlstat==$NEVERMIND ) {
       # One of: not on server, can't get, don't want, access forbiden:
       # Schedule for removal.
       $lf_file{$lf_url}=$FILEDEL if exists($lf_file{$lf_url});
@@ -1141,9 +1251,25 @@ sub clean_disk {
 	"w3mir: Please report to w3mir-core\@usit.uio.no.\n";
     }
   }				# foreach %rum_urlstat
+
+  # ***** 3. Remove the difference *****
+
+  # Loop over all found files:
+  # - Should we have this file?
+  # - If not: Remove file and decrease directory entry count
+  # Loop as long as there are directories with 0 entry count:
+  # - Loop over all directories with 0 entry count:
+  #   - Remove directory
+  #   - Decrease entry count of parent
   
   warn "w3mir: Some error occured, conservative file removal\n"
     if !$complete_retrival && $verbose>=0;
+
+  # Remove all files we don't want removed from list of files present:
+  foreach $lf_url (keys %nodelete) {
+    print STDERR "Not deleting: $lf_url\n" if $verbose>=0;
+    delete $lf_file{$lf_url} || delete $lf_file{'./'.$lf_url};
+  }
   
   # Remove files
   foreach $lf_url (keys %lf_file) {
@@ -1181,7 +1307,7 @@ sub clean_disk {
 }
 
 
-sub wanted {
+sub find_files {
   # This is called by the find procedure for every file/dir found.
   
   # This builds two hashes:
@@ -1191,7 +1317,7 @@ sub wanted {
   lstat($_);
   
   $lf_dir{$File::Find::dir}++;
-  
+
   if (-f _) {
     $lf_file{$File::Find::name}=$FILEHERE;
   } elsif (-d _) {
@@ -1308,13 +1434,26 @@ sub write_page {
     # I have it in memory
     if ($s==0) {
       print STDERR ", saving" if $verb>0;
+
+      while (-d $lf_name) {
+	# This will run once, maybe twize, $fiddled will be canged the
+	# first time
+	if (exists($fiddled{$lf_name})) {
+	  warn "Cannot save $lf_name, there is a directory in the way\n";
+	  return;
+	}
+
+	$fiddled{$lf_name}=1;
+
+	rm_rf($lf_name);
+	print STDERR "w3mir: $lf_name" if $verbose>=0;
+      }
+
       if (!open(PAGE,">$lf_name")) {
 	warn "\nw3mir: can't open $lf_name for writing: $!\n";
-#	exit 1 unless ($!==&EISDIR) ;
 	return;
       }
       binmode PAGE unless $w3http::plaintext;
-#      warn "Page length: ".length($$page_ref)."\n";
       if ($$page_ref ne '') {
 	print PAGE $$page_ref || die "w3mir: Error writing $lf_name: $!\n";
       }
@@ -1322,7 +1461,7 @@ sub write_page {
       print STDERR ": ", length($$page_ref), " bytes\n"
 	if $verb>=0;
       setmtime($lf_name,$w3http::headval{'last-modified'})
-	  if exists($w3http::headval{'last-modified'});
+	if exists($w3http::headval{'last-modified'});
     } elsif ($s==1) {
       print $$page_ref ;
     } elsif ($s==2) {
@@ -1359,32 +1498,46 @@ sub setmtime {
 }
 
 
-sub movefile ($;$) {
+sub movefile {
   # Rename a file.  Note that copy is not a good alternative, since
-  # copying over NFS is something we want to avoid.  Probably ditto
-  # for CIFS.
+  # copying over NFS is something we want to avoid.
 
   # Returns 0 if failure and 1 in case of sucess.
 
   (my $old,my $new) = @_;
 
-  # Remove anything that might have the name already.  Ignore error.
-  unlink($new);
+  # Remove anything that might have the name already.
+  if (-d $new) {
+    print STDERR "\n" if $verbose>=0;
+    rm_rf($new);
+    $fiddled{$new}=1;
+    print STDERR "w3mir: $new" if $verbose>=0;
+  } elsif (-e $new) {
+    $fiddled{$new}=1;
+    if (unlink($new)) {
+      print STDERR "\nw3mir: removed $new\nw3mir: $new"
+	if $verbose>=0;
+    } else {
+      return 0;
+    }
 
-  if ($win32) {
+  }
+
+#  if ($win32) {
+    # Greg Lindhorst says rename works now
     # szurgot: rename won't work... It has to be move, also we have to
     # convert the name. In the end, I want this to be perl functions,
     # but for now, this'll stand.
-    $new =~ s|/|\\|g;
-    system("move $old $new > $nulldevice");
-    warn "Problem moving $old to $new...\n",return 0 if $?;
-  } else {
+#    $new =~ s|/|\\|g;
+#    system("move $old $new > $nulldevice");
+#    warn "Problem moving $old to $new...\n",return 0 if $?;
+#  } else {
     if ($new ne '-' && $new ne $nulldevice) {
       warn "MOVING $old -> $new\n" if $debug;
       rename($old,$new) || 
 	warn "Could not rename $old to $new: $!\n",return 0;
     }
-  }
+#  }
   return 1;
 }
 
@@ -1414,7 +1567,7 @@ sub mkdir {
 
   # This removes the last element of the array, it's meant to shave
   # off the file name leaving only the directory name, as a
-  # convenience.
+  # convenience, for the caller.
   pop @dirs;
   foreach $dir (@dirs) {
     $path .= "/$dir";
@@ -1422,23 +1575,31 @@ sub mkdir {
     # only make if it isn't already there
     next if -d _;
 
-    if (-f _ && movefile($path,"move.$$")) {
-      $moved=1;
+    while (!-d _) {
+      if (exists($fiddled{$path})) {
+	warn "Cannot make directory $path, there is a file in the way.\n";
+	return;
+      }
+
+      $fiddled{$path}=1;
+
+      if (!-e _) {
+	mkdir($path,0777);
+	last;
+      }
+
+      if (unlink($path)) {
+	warn "w3mir: removed file $path\n" if $verbose>=0;
+      } else {
+	warn "Unable to remove $path: $!\n";
+	next;
+      }
+    
+      warn "mkdir $path\n" if $debug;
+      mkdir($path,0777) ||
+	warn "Unable to create directory $path: $!\n";
+
       stat($path);
-    }
-
-    # Unlink it
-    unlink($path) ||
-      die "Unable to remove $path: $!\n"
-	if -x _;
-
-    warn "mkdir $path\n" if $debug;
-    mkdir($path,0777) ||
-      die "Unable to create directory $path: $!\n";
-
-    if ($moved) {
-      $moved=0;
-      movefile("move.$$",$path."/index.html");
     }
   }
 }
@@ -1447,15 +1608,20 @@ sub mkdir {
 sub add_referer {
   # Add a referer to the list of referers of a document.  Unless it's
   # already there.
-  # Don't mail me if you think this is a bit like a toungetwiser:
+  # Don't mail me if you (only) think this is a bit like a toungetwiser:
 
   my($rum_referee,$rum_referer) = @_ ;
 
   if (exists($rum_referers{$rum_referee})) {
-    push(@{$rum_referers{$rum_referee}},$rum_referer)
-      if !grep(@{$rum_referers{$rum_referee}},$rum_referer);
+    if (!grep(m/^$rum_referer$/,@{$rum_referers{$rum_referee}})) {
+      push(@{$rum_referers{$rum_referee}},$rum_referer);
+      # warn "$rum_referee <- $rum_referer pushed\n";
+    } else {
+      # warn "$rum_referee <- $rum_referer NOT pushed\n";
+    }
   } else {
     $rum_referers{$rum_referee}=[$rum_referer];
+    # warn "$rum_referee <- $rum_referer pushed\n";
   }
 }
 
@@ -1493,22 +1659,15 @@ sub apply {
 
 
 sub want_this {
-    # Find out if we want the url passed.  Just pass it on to the
-    # generated functions.
-    my($rum_url_o)=url $_[0];
-    my($scope,$user)=(0,0);
+  # Find out if we want the url passed.  Just pass it on to the
+  # generated functions.
+  my($rum_url)=shift;
 
-    # Does scope rule want this?
-    if ($scope=&$scope_code($rum_url_o->as_string)) {
-	# Does user rule want this too?
-	$user=&$rule_code($rum_url_o->as_string);
-	$rum_urlstat{$rum_url_o->as_string}=$DONTWANT unless $user;
-    }
-
-#    print STDERR "Want this: $this: scope: $scope, user: $user\n";
-
-    return $scope && $user;
-
+  # Does scope rule want this?
+  return &$scope_code($rum_url) &&
+    # Does user rule want this too?
+    &$rule_code($rum_url) 
+  
 }
 
 
@@ -1529,20 +1688,20 @@ sub process_tag {
   my $lf_url_o; # ... and it's object
   my $key;
 
-#  print STDERR "\nProcess Tag: $tag_name, URL attributes: ", join(', ',@{$url_attrs}),"\nOrigin:",$base_url,"\n";
+  print STDERR "\nProcess Tag: $tag_name, URL attributes: ", join(', ',@{$url_attrs}),"\nOrigin:",$base_url,"\n" if $debug>2;
+
+  $lf_referer =~ s~^/~~;
+  $lf_referer = "file:/$lf_referer";
 
   foreach $key (@{$url_attrs}) {
     if (defined($$attrs{$key})) {
       $rum_url=$$attrs{$key};
-      # print STDERR "$key = $rum_url\n";
+      warn "$key = $rum_url\n" if $debug;
       $lf_url=apply($rum_url);
       if (defined($lf_url)) {
 	$lf_url =~ s~^/~~; # Remove leading / to avoid doubeling
 	$lf_url_o=url "file:/$lf_url";
       
-	$lf_referer =~ s~^/~~;
-	$lf_referer = "file:/$lf_referer";
-
 	# Save new value in the hash
 	$$attrs{$key}=($lf_url_o->rel($lf_referer))->as_string;
 
@@ -1551,36 +1710,6 @@ sub process_tag {
       }
     }
   }
-}
-
-
-sub process_apply {
-  # Apply function used for callback from htmlop::process.  We are
-  # passed one argument, the rum_url, which we will return modified or
-  # not for use in the document being processed.  The lf_referer is
-  # userdata.
-  
-  my $rum_url = shift;
-  my $lf_referer = shift;
-  my $lf_url = apply($rum_url);
-  my $lf_url_o;
-
-  #print "Process_apply: $rum_url, $lf_referer\n";
-
-  if (defined($lf_url)) {
-    $lf_url =~ s~^/~~; # Remove leading / to avoid doubeling
-    $lf_url_o=url "file:/$lf_url";
-
-    $lf_referer =~ s~^/~~;
-    $lf_referer = "file:/$lf_referer";
-
-    $lf_url=($lf_url_o->rel($lf_referer))->as_string;
-    #print "$lf_referer($rum_url) -> $lf_url\n";
-    return $lf_url;
-  }  
-
-  # print "Unchanged: $rum_url\n";
-  $rum_url;
 }
 
 
@@ -1621,6 +1750,7 @@ sub parse_args {
       $remove=1,next if $f eq 'R';
       $cache_header = 'Pragma: no-cache',next if $f eq 'pflush';
       $w3http::agent=$w3mir_agent=shift,next if $f eq 'agent';
+      $abs=1,next if $f eq 'abs';
       $batch = 1,next if $f eq 'B';
       $read_urls = 1,next if $f eq 'I';
 
@@ -1710,15 +1840,15 @@ sub parse_cfg_file {
     umask(numeric($value)),next if ( $key eq 'umask' );
     $check_robottxt=boolean($value),next if ( $key eq 'robot-rules' );
     $edit=boolean($value),next if ($key eq 'remove-nomirror');
+    $indexname=$value,next if ($key eq 'index-name');
     $s=nway($value,'save','stdout','forget'),next 
       if ( $key eq 'file-disposition' );
     $verbose=nway($value,'quiet','brief','chatty')-1,next
       if ( $key eq 'verbosity' );
 
     if ( $key eq 'cd' ) {
-      &mkdir($value.'/this-is-not-created-odd-or-what');
-      chdir($value) || 
-	die "w3mir: Can't change working directory to '$value': $!\n";
+      $chdirto=$value;
+      warn "Use of 'cd' is discouraged\n" unless $verbose==-1;
       next;
     }
     
@@ -1919,20 +2049,20 @@ sub parse_cfg_file {
 	  $nval=nway($val,'recurse','no-date-check','only-nonexistent',
 		     'list-urls','lowercase','remove','batch','read-urls',
 		     'abs');
-	  $r=1,next if ($nval==0);
-	  $fetch=1,next if ($nval==1);
-	  $fetch=-1,next if ($nval==2);
-	  $list=1,next if ($nval==3);
+	  $r=1,next if $nval==0;
+	  $fetch=1,next if $nval==1;
+	  $fetch=-1,next if $nval==2;
+	  $list=1,next if $nval==3;
 	  if ($nval==4) {
 	    $lc=1;
 	    $iinline=($lc?"(?i)":"");
 	    $ipost=($lc?"i":"");
 	    next ;
 	  }
-	  $remove=1,next if ($nval==5);
-	  $batch=1,next if ($nval==6);
-	  $read_urls=1,next if ($nval==7);
-	  $abs=1,next if ($nval==8);
+	  $remove=1,next if $nval==5;
+	  $batch=1,next if $nval==6;
+	  $read_urls=1,next if $nval==7;
+	  $abs=1,next if $nval==8;
         } else {
 	    die "w3mir: options must be the first directive in the config file.\n";
 	}
@@ -1943,8 +2073,23 @@ sub parse_cfg_file {
       my($val,$nval);
       foreach $val (split(/\s*,\s*/,lc $value)) {
 	$nval=nway($val,'referer','user');
-	$do_referer=0,next if ($nval==1);
-	$do_user=0,next if ($nval==1);
+	$do_referer=0,next if $nval==0;
+	$do_user=0,next if $nval==1;
+      }
+    }
+
+
+    if ($key eq 'fixup') {
+
+      $fixrc="$file";
+      # warn "Fixrc: $fixrc\n";
+      $fixup=1;
+
+      my($val,$nval);
+      foreach $val (split(/\s*,\s*/,lc $value)) {
+	$nval=nway($val,'on','run','noindex');
+	$runfix=1,next if $nval==1;
+	# Ignore everyting else
       }
     }
 
@@ -2017,6 +2162,36 @@ sub insert_at_start {
 }
 
 
+
+sub rm_rf {
+  # Recursively remove directories and other files
+  # File::Path::rmtree does a similar thing but the messages are wrong
+
+  my($remove)=shift;
+
+  eval "use File::Find;" unless defined(&finddepth);
+
+  die "w3mir: Could not load File::Find module when trying to remove $remove\n"
+    unless defined(&find);
+
+  finddepth(\&remove_everything,$remove);
+
+  if (rmdir($remove)) {
+    print STDERR "\nw3mir: removed directory $remove\n" if $verbose>=0;
+  } else {
+    print STDERR "w3mir: could not remove $remove: $!\n";
+  }
+}
+
+
+sub remove_everything {
+  # This does the removal
+  ((-d && rmdir($_)) || unlink($_)) && $verbose>=0 &&
+    print STDERR "w3mir: removed $File::Find::name\n";
+}
+
+
+
 sub usage {
 
   die 'w3mir: usage: w3mir [options] <single-http-url>
@@ -2052,7 +2227,7 @@ sub usage {
 ';
 }
 __END__
-
+# -*- perl -*-
 =head1 NAME
 
 w3mir - all purpose HTTP-copying and mirroring tool
@@ -2068,9 +2243,18 @@ B<w3mir> is a all purpose HTTP copying and mirroring tool.  The
 main focus of B<w3mir> is to create and maintain a browsable copy of
 one, or several, remote WWW site(s).
 
+Used to the max w3mir can retrive the contents of several related
+sites and leave the mirror browseable via a local web server, or from
+a filesystem, such as directly from a CDROM.  
+
 B<w3mir> has options for all operations that are simple enough for
 options.  For authentication and passwords, multiple site retrievals
-and such you will have to resort to a L</CONFIGURATION-FILE>
+and such you will have to resort to a L</CONFIGURATION-FILE>.  If
+browsing from a filesystem references ending in '/' needs to be
+rewritten to end in '/index.html', and in any case, if there are URLs
+that are redirected will need to be changed to make the mirror
+browseable, see the documentation of B<Fixup> in the
+L</CONFIGURATION-FILE> secton.
 
 B<w3mir>s default behavior is to do as little as possible and to be as
 nice as possible to the server(s) it is getting documents from.  You
@@ -2323,9 +2507,14 @@ referense is absolutified into F<http://www.ifi.uio.no/~janl/foo.html>
 
 Most things can be mirrored with a (long) command line.  But multi
 server mirroring, authentication and some other things are only
-available through a configuration file.  The configuration file
-consists of lines of comments and directives.  A directive consists of
-a keyword followed by a colon (:) and then one or several arguments.
+available through a configuration file.  A configuration file can
+either be specified with the B<-cfgfile> switch, but w3mir also looks
+for .w3mirc (w3mir.ini on Win32 platforms) in the directory where
+w3mir is started from.
+
+The configuration file consists of lines of comments and directives.
+A directive consists of a keyword followed by a colon (:) and then one
+or several arguments.
 
  # This is a comment.  And the next line is a directive:
  Options: recurse, remove
@@ -2421,6 +2610,12 @@ entering
 As with the URL directive, if the URL refers to a directory it I<must>
 end in a "/".
 
+Another use for it is when mirroring sites that have several names
+that all refer to the same (logical) server:
+
+  URL: http://www.midifest.com/
+  Also: http://midifest.com/ .
+
 At this point in time B<w3mir> has no mechanism to easily enlarge the
 scope of a mirror after it has been established.  That means that you
 should survey the documents you are going to retrieve to find out what
@@ -2429,6 +2624,23 @@ what other sites you might like to retrieve.  If you find out that
 something is missing you will have to delete the whole mirror, add the
 needed B<Also> directives and then reestablish the mirror.  This lack
 of flexibility in what to retrieve will be addressed at a later date.
+
+See also the B<Also-quene> directive.
+
+=item Also-quene: I<HTTP-URL directory>
+
+This is like Also, except that the URL itself is also quened.  The
+Also directive will not cause any documents to be retrived UNLESS they
+are referenced by some other document w3mir has already retrived.
+
+=item Quene: I<HTTP-URL>
+
+This is quenes the URL for retrival, but does not enlarge the scope of
+the retrival.  If the URL is outside the scope of retrival it will not
+be retrived anyway.
+
+The observant reader will see that B<Also-quene> is like B<Also>
+combined with B<Quene>.
 
 =item Initial-referer: I<referer>
 
@@ -2479,11 +2691,9 @@ character in the configuration file.
 =item Apply: I<regular-expression>
 
 This is used to change a URL into another URL.  It is a potentially
-I<very> powerful feature, but it is provided only because B<w3mir>
-relies on the same kind of mechanism for some of its work and because
-it has a big potential.  It has not been used extensively for any real
-work.  Anyone using this feature should write to the w3mir authors if
-they find that it needs extentions.
+I<very> powerful feature.  It has not been used for any real work.
+Anyone using this feature should write to the w3mir authors if they
+find that it needs extentions.
 
 The B<Apply> expressions are applied, in sequence, to the URLs in
 their absolute form.  I.e., with the whole
@@ -2503,6 +2713,10 @@ to translate the path element I<foo> to I<bar> in all URLs.
 
 "#" cannot be used as delimiter as it is the comment character in the
 configuration file.
+
+Please note that w3mir expects that URLs identifying 'directories'
+keep idenfifying directories after application of Apply rules.  Ditto
+for files.
 
 =item Agent: I<agent>
 
@@ -2560,7 +2774,8 @@ default.  The two others correspond to the B<-q> and B<-c> switches.
 =item Cd: I<directory>
 
 Change to given directory before starting work.  If it does not exist
-it will be quietly created.
+it will be quietly created.  Using this option breaks the 'fixup'
+code so consider not using it, ever.
 
 =item HTTP-Proxy: I<server:port>
 
@@ -2632,8 +2847,76 @@ needed to give the necessary authentication information
 =item Disable-Headers: I<referer> | I<user>
 
 Stop B<w3mir> from sending the given headers.  This can be used for
-anonymity, making your retrievals harder to track, especially if you
-specify a generic B<Agent>, like Netscape.
+anonymity, making your retrievals harder to track.  It will be even
+harder if you specify a generic B<Agent>, like Netscape.
+
+=item Fixup: I<...>
+
+This directive controls some aspects of the separate program w3mfix.
+w3mfix uses the same configuration file as w3mir since it needs a lot
+of the information in the B<w3mir> configuration file to do it's work
+correctly.  B<w3mfix> is used to make mirrors more browseable on
+filesystems (disk or CDROM), and to fix redirected URLs and some other
+URL editing.  If you want a mirror to be browseable of disk or CDROM
+you almost certainly need to run w3mfix.  In many cases it is not
+necessary when you run a mirror to be used through a WWW server.
+
+To make B<w3mir> write the data files B<w3mfix> needs, and do nothing
+else, simply put
+
+=over 8
+
+  Fixup: on
+
+=back
+
+in the configuration file.  To make B<w3mir> run B<w3mfix>
+automatically after each time B<w3mir> has completed a mirror run
+specify
+
+=over 8
+
+  Fixup: run
+
+=back
+
+L<w3mfix> is documented in a separate man page in a effort to not
+prolong I<this> manpage unnecessarily.
+
+=item Index-name: I<name-of-index-file>
+
+When retriving URLs ending in '/' w3mir needs to append a filename to
+store it localy.  The default value for this is 'index.html' (this is
+the most used, its use originated in the NCSA HTTPD as far as I know).
+Some WWW servers use the filename 'Welcome.html' or 'welcome.html'
+instead (this was the default in the old CERN HTTPD).  And servers
+running on limited OSes frequently use 'index.htm'.  To keep things
+consistent and sane w3mir and the server should use the same name.
+Put
+
+  Index-name: welcome.html
+
+when mirroring from a site that uses that convention.
+
+When doing a multiserver retrival where the servers use two or more
+different names for this you should use B<Apply> rules to make the
+names consistent within the mirror.
+
+When making a mirror for use with a WWW server, the mirror should use
+the same name as the new server for this, to acomplish that
+B<Index-name> should be combined with B<Apply>.
+
+Here is an example of use in the to latter cases when Welcome.html is
+the prefered I<index> name:
+
+  Index-name: Welcome.html
+  Apply: s~/index.html$~/Welcome.html~
+
+Similarly, if index.html is the prefered I<index> name.
+
+  Apply: s~/Welcome.html~/index.html~
+
+I<Index-name> is not needed since index.html is the default index name.
 
 =back
 
@@ -2654,7 +2937,7 @@ that are no longer at the server from the mirror
 =item * Fetch the contents of the Sega site through a proxy, pausing
 for 0 seconds between each document
 
- w3mir -r -p 0 -P www.foo.org:4321 http://www.sega.com
+ w3mir -r -p 0 -P www.foo.org:4321 http://www.sega.com/
 
 =item * Do everything according to F<w3mir.cfg>
 
@@ -2668,7 +2951,7 @@ for 0 seconds between each document
  # Start here:
  URL: http://www.starwars.com/
  #
- # Speed things up, not nice
+ # Speed things up
  Pause: 0
  #
  # Don't get junk
@@ -2716,7 +2999,7 @@ for 0 seconds between each document
 
 =item Ignore-RE and Fetch-RE
 
- # Get only jpeg files, no gifs
+ # Get only jpeg/jpg files, no gifs
  Fetch-RE: m/\.jp(e)?g$/
  Ignore-RE: m/\.gif$/
 
@@ -2737,6 +3020,43 @@ Oslo inside the scope of retrieval very easily:
 =back
 
 There are two rather extensive example files in the B<w3mir> distribution.
+
+=head1 BUGS
+
+=over 4
+
+=item The -lc switch does not work too well.
+
+=back
+
+=head1 FEATURES
+
+These are not bugs.
+
+=over 4
+
+=item URLs with two /es ('//') in the path component does not work as
+some might expect.  According to my reading of the URL spec. it is an
+illegal construct, which is a Good Thing, because I don't know how to
+handle it if it's legal.
+
+=item If you start at http://foo/bar/ then index.html might be gotten
+twice.
+
+=item Some documents point to a point above the server root, i.e.,
+http://some.server/../stuff.html.  Netscape, and other browsers, in
+defiance of the URL standard documents will change the URL to
+http://some.server/stuff.html.  W3mir will not.
+
+=item Authentication is I<only> tried if the server requests it.  This
+might lead to a lot of extra connections going up and down, but that's
+the way it's gotta work for now.
+
+=back
+
+=head1 SEE ALSO
+
+L<w3mfix>
 
 =head1 AUTHORS
 
