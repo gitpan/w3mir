@@ -12,7 +12,7 @@
 <body>
 <h1>W3MIR HOWTO</h1>
 
-<p><b>Corresponding to version 1.0.1 of w3mir</b>
+<p><b>Corresponding to version 1.0.2 of w3mir</b>
 
 <p>W3mir is a all purpose WWW copying and mirroring program.  Its main
 focus is copying complete directory structures keeping your copy
@@ -205,7 +205,9 @@ you also want whatever the documents under
 <p><b>Note:</b> this will only get stuff that was used by the
 documents under <tt>http://www.starwars.com/episode-i/</tt>, anything
 stored under <tt>http://www.starwars.com/imagery/</tt> which is not
-used will not be retrieved.
+used will not be retrieved. If you want everything under
+<tt>imagery</tt> to be retrived use the <tt>Also-quene:</tt>
+directive.
 
 <hr>
 
@@ -239,10 +241,10 @@ Fetch: *.mpg
 Ignore: *
 </pre>
 
-<p>W3mir will try the filename against each Fetch/Ignore rule in
-sequence. A html file will match the first line and be fetched.  Any
-mpg file will match the second line and be fetched.  All other files
-will match the third line, and be ignored.  By arranging fetch and
+<p>W3mir will test each filename against each Fetch/Ignore rule in
+sequence. A html file will match the first line and be fetched. Any
+mpg file will match the second line and be fetched. All other files
+will match the third line, and be ignored. By arranging fetch and
 ignore rules carefully you may retrieve exactly the filename patterns
 you want and not retrieve anything else.
 
@@ -317,6 +319,10 @@ Ignore-RE: m~/.*/.*/.*/~
 
 <p>and so on.  "#" cannot be used as delimiter as it is the comment
 character in the configuration file.
+
+<p>There are some traps when using <tt>Ignore-RE</tt> and
+<tt>Fetch-RE</tt>, please see their documentation in <tt>mandoc
+w3mir</tt> for a more complete explanation.
 
 <hr>
 
@@ -417,7 +423,7 @@ from both servers will be stored in the same place.  But since w3mir
 asks to only get documents that are newer than the ones it already has
 any document gotten from the server under the www.math.uio.no name
 will not be gotten from the math-www.uio.no name as well.  ... w3mir
-will ask for the document, but the server will tell w3mir that it's
+will ask for the document, but the server will tell w3mir that its
 copy is current and there will be no additional transfer of the
 document.
 
@@ -464,7 +470,7 @@ the references to that which you removed.
 
 <h3><a name="cat">How do I 'cat' a file?</a></h3>
 
-<p>W3mir will output the fetched document to it's standard output
+<p>W3mir will output the fetched document to its standard output
 (normally your screen/window) if you specify the '-s' command line
 option.  The corresponding configuration file directive is 
 
@@ -528,24 +534,17 @@ href="http://info.webcrawler.com/mak/projects/robots/norobots.html">http://info.
 
 <hr>
 
-<h3><a name="corrupt">How do I stop w3mir from corrupting binary
-files?</a></h3>
-
 <p>During the normal course of events w3mir converts the newline
-format of fetched text documents to your systems native newline
-format.  On Unix a newline consists of a single ASCII LF character, on
+format of fetched HTML documents to your systems native newline
+format. On Unix a newline consists of a single ASCII LF character, on
 Macintoshes it's a single ASCII CR character and on Dos/Windows it's a
-ASCII CR/LF pair.  W3mir understands all these and all text files are
-saved in the format your operating system prefers.  However, sometimes
-a web server will identify a binary file as a text file.  Typical
-examples are a GIF file without the '.gif' name extention or a Java
-.class file which the web server has not been updated to report as
-such.  This happens wery seldom though.
+ASCII CR/LF pair. W3mir understands all these and all HTML files are
+saved in the format your operating system prefers.
 
-<p>Normaly a binary file is ruined by the automatic newline
-conversions w3mir do.  If you discover a file which is obviously
-ruined in the mirror, but is not ruined when you view it on the
-original site do this:
+<p>If, and this is very unlikely, a web server identifies a binary
+file as HTML w3mir will very likely corrupt the file. If you discover
+a file which is obviously ruined in the mirror, but is not ruined when
+you view it on the original site do this:
 
 <ol>
 
@@ -563,8 +562,8 @@ in the configuration file.
 
 <li>Remove the corrupt file(s).
 
-<li>Run "<tt>w3mir -fs</tt>...", to fetch only
-the deleted file(s) again.
+<li>Run "<tt>w3mir -fs</tt>...", to fetch only the deleted file(s)
+again.
 
 </ol>
 
@@ -667,7 +666,7 @@ HTTP-Proxy-passwd: proxy-password
 <h3><a name="proxytweak">How do I ensure that the proxy server
 ...?</a></h3>
 
-<p>HTTP/1.0 proxy servers may be told to not use it's current copy of
+<p>HTTP/1.0 proxy servers may be told to not use its current copy of
 a document if you specify the <tt>-pflush</tt> command-line option.  Or 
 
 <pre>
@@ -784,7 +783,7 @@ Ignore: *.map
 <p>Java and Active X objects are are included in html pages with a
 <tt>&lt;OBJECT&gt;</tt> or <tt>&lt;APPLET&gt;</tt> tag.  W3mir can
 handle these on one condition: The CODEBASE attribute names the
-directory where the program stores it's resources (such as
+directory where the program stores its resources (such as
 subprograms, graphic files, sound, text, and so on) and w3mir must
 have read access to this directory.  Otherwise w3mir is without hope,
 it's impossible to extract the name of the resources the program needs
@@ -798,7 +797,7 @@ program needs, w3mir does no support this.
 <h3><a name="script">How do I handle java-script and other script
 languages?</a></h3>
 
-<p>W3mir does it's best to pass scripts (java-script, perl-script,
+<p>W3mir does its best to pass scripts (java-script, perl-script,
 etc...) embedded in the HTML undamaged.  It cannot, however, extract
 any URLs the script generates and the browser would cause the document
 to refer to or embed in a page. 
@@ -883,7 +882,7 @@ this:
 
 <p><tt>Lynx/2.6  libwww-FM/2.14</tt>
 
-<p>You can change w3mir's identification with <tt>-agent 'string'</tt>
+<p>You can change w3mirs identification with <tt>-agent 'string'</tt>
 on the command line.  In the configuration file you put
 
 <pre>
@@ -906,4 +905,4 @@ get and not to get and under what name to save it on disk.  And a
 couple of other things...
 
 <hr>
-<address>Nicolai Langfeldt 7/2/1998</address>
+<address>Nicolai Langfeldt 2/5/1998</address>

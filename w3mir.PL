@@ -224,8 +224,14 @@ use lib '/hom/janl/lib/perl';
 #		  -- Fix wild_re more, bug noted by James Dumser
 #		  -- 1.0pre3
 #   janl 18/03/98 -- Version 1.0 is released
-#   janl 09/04/98 -- Added feature so user can disable newline conversion
+#   janl 09/04/98 -- Added feature so user can disable newline conversion.
 #   janl 20/04/98 -- Only convert newlines in HTML files. -> 1.0.2
+#   janl 09/05/98 -- More carefull clean_disk code.
+#		  -- Check if the redirected URL was a root url, if so
+#		     issue a warning and exit.
+#   janl 12/05/98 -- use ->unix_path instead of ->as_string to derive local
+#		     filename.
+#   janl 25/05/98 -- -B didn't work too well.
 #
 # Variable name discipline:
 # - remote, umodified URL.  Variables prefixed 'rum_'
@@ -292,6 +298,7 @@ my $read_urls=0;		# Get urls from STDIN?
 my $abs=0;			# Absolutify URLs?
 my $immediate_redir=0;		# Immediately follow a redirect?
 my @root_urls;			# This is where we start, the root documents
+my @root_dirs;			# The corresponding directories.  for remove
 my $chdirto='';			# Place to chdir to after reading config file
 my %nodelete=();		# Files that should not be deleted
 
@@ -304,8 +311,8 @@ my $fixopen=0;			# Fixup files open?
 my $indexname='index.html';
 
 my $VERSION;
-$VERSION='1.0.2';
-$w3http::agent = my $w3mir_agent = "w3mir/$VERSION-20-4-1998";
+$VERSION='1.0.3';
+$w3http::agent = my $w3mir_agent = "w3mir/$VERSION-12-6-1998";
 my $iref='(commandline)';	# Initial referer
 
 # Derived settings	
@@ -400,8 +407,6 @@ my %knownformats = ( 'application/pdf', \&w3pdfuri::list,
 # This should probably be made more flexible, but not until we need it.
 
 my %knownmagic = ( '%PDF-', 'application/pdf' );
-
-# 
 
 my $iinline='';	# inline RE code to make RE caseinsensitive 
 my $ipost='';	# RE postfix to make it caseinsensitive
@@ -520,11 +525,11 @@ if ($check_robottxt) {
   $Robot_Blob = new WWW::RobotRules $w3mir_agent;
 }
 
-die "w3mir: No URLs?  Try 'w3mir -h' for help.\n"
-  if $#root_urls==-1;
-
 # We have several main-modes of operation.  Here we select one
 if ($r) {
+
+  die "w3mir: No URLs?  Try 'w3mir -h' for help.\n"
+    if $#root_urls==-1;
 
   warn "Recursive retrival comencing\n" if $debug;
 
@@ -596,15 +601,22 @@ sub get_document {
 
   my($rum_url_o)=shift;
   my($lf_url)=shift;
-
   croak("\$rum_url_o is empty") if !defined($rum_url_o) || !$rum_url_o;
   croak("$lf_url is empty") if !defined($lf_url) || !$lf_url;
 
-  # Make sure it's a object
+  # Make sure it's an object
   $rum_url_o = url $rum_url_o 
     unless ref $rum_url_o;
+  
+  # Derive a filename from the url, the filename contains no URL-quoting
+  my($lf_name) = (url "file:$lf_url")->unix_path;
 
-  print STDERR "GET_DOCUMENT: '",$rum_url_o->as_string,"' -> '",$lf_url,"'\n"
+  # Make all intermediate directories
+  &mkdir($lf_name) if $s==0;
+
+  my($rum_as_string) = $rum_url_o->as_string;
+
+  print STDERR "GET_DOCUMENT: '",$rum_as_string,"' -> '",$lf_name,"'\n"
     if $debug;
 
   my $hostport;
@@ -614,9 +626,9 @@ sub get_document {
   my $url_extractor;
   my $do_query;		# Do query or not?
 
-  if (defined($rum_urlstat{$rum_url_o->as_string}) && 
-      $rum_urlstat{$rum_url_o->as_string}>0) {
-    warn "w3mir: Internal error, ".$rum_url_o->as_string.
+  if (defined($rum_urlstat{$rum_as_string}) && 
+      $rum_urlstat{$rum_as_string}>0) {
+    warn "w3mir: Internal error, ".$rum_as_string.
       " quened several times\n";
     next;
   }
@@ -637,9 +649,9 @@ sub get_document {
   if ($fetch==1) {
     # Nothing do do?
   } else {
-    if (-f $lf_url) {
+    if (-f $lf_name) {
       if ($fetch==-1) {
-	print STDERR "w3mir: ".($infoloss?$rum_url_o->as_string:$lf_url).
+	print STDERR "w3mir: ".($infoloss?$rum_as_string:$lf_name).
 	  ", already have it" if $verbose>=0;
 	if (!$mine_urls) {
 	  # If -fs and the file exists and we don't need to mine URLs
@@ -651,7 +663,7 @@ sub get_document {
 	$w3http::result=1304;	# Pretend it was 'not modified'
 	$do_query=0;
       } else {
-	push(@EXTRASTUFF,$w3http::IFMODF,$lf_url);
+	push(@EXTRASTUFF,$w3http::IFMODF,$lf_name);
       }
     }
   }
@@ -681,7 +693,7 @@ sub get_document {
 	push(@EXTRASTUFF,$w3http::AUTHORIZ,$authdata);
       } else {
 	print STDERR "w3mir: No authorization data for $hostport/$realm\n";
-	$rum_urlstat{$rum_url_o->as_string}=$NEVERMIND;
+	$rum_urlstat{$rum_as_string}=$NEVERMIND;
 	next;
       }
     }
@@ -690,12 +702,14 @@ sub get_document {
       if ($cache_header);
 
     # Insert referer header data if at all
-    push(@EXTRASTUFF,$w3http::REFERER,$rum_referers{$rum_url_o->as_string}[0])
-      if ($do_referer && exists($rum_referers{$rum_url_o->as_string}));
+    push(@EXTRASTUFF,$w3http::REFERER,$rum_referers{$rum_as_string}[0])
+      if ($do_referer && exists($rum_referers{$rum_as_string}));
 
     push(@EXTRASTUFF,$w3http::NOUSER)
       unless ($do_user);
 
+    # YES, $lf_url is right, w3http::query handles this like an url so
+    # the quoting must all be in place.
     my $binfile=$lf_url;
     $binfile='-' if $s==1;
     $binfile=$nulldevice if $s==2;
@@ -705,11 +719,11 @@ sub get_document {
       sleep($pause);
     }
 
-    print STDERR "w3mir: ".($infoloss?$rum_url_o->as_string:$lf_url) 
+    print STDERR "w3mir: ".($infoloss?$rum_as_string:$lf_name) 
       unless $verbose<0;
-    print STDERR "\nFile: $lf_url\n" if $debug;
+    print STDERR "\nFile: $lf_name\n" if $debug;
 
-    &w3http::query($w3http::GETURL,$rum_url_o->as_string,
+    &w3http::query($w3http::GETURL,$rum_as_string,
 		   $w3http::SAVEBIN,$binfile,
 		   @EXTRASTUFF);
 
@@ -726,7 +740,7 @@ sub get_document {
   } # if $do_query
     
   if ($w3http::result==200) { # 200 OK 
-    $rum_urlstat{$rum_url_o->as_string}=$GOTIT;
+    $rum_urlstat{$rum_as_string}=$GOTIT;
 
     if ($mine_urls || $process_urls) {
 
@@ -739,9 +753,11 @@ sub get_document {
 	print STDERR ($process_urls)?", processing":", url mining"
 	  if $verbose>0;
 	  
-	print STDERR "\nurl:'$lf_url'\n" if $debug;
+	print STDERR "\nurl:'$lf_url'\n" 
+	  if $debug;
 
-	print "\nMining URLs: $mine_urls, Process: $process_urls\n" if $debug;
+	print "\nMining URLs: $mine_urls, Process: $process_urls\n" 
+	  if $debug;
 	    
 	($page,@rum_newurls) = 
 	  &htmlop::process($w3http::document,
@@ -777,11 +793,11 @@ sub get_document {
 
 	# The knownformats extractors only work on disk files so write
 	# doc to disk if not there already (non-html text will not be)
-	write_page($lf_url,$w3http::document,1);
+	write_page($lf_name,$w3http::document,1);
 
 	# Now we try our hand at fetching URIs from non-html files.
 	print STDERR ", mining URLs" if $verbose>=1;
-	@rum_newurls = &$url_extractor($lf_url);
+	@rum_newurls = &$url_extractor($lf_name);
 	# warn "URLs from PDF: ",join(', ',@rum_newurls),"\n";
       }
       
@@ -803,12 +819,12 @@ sub get_document {
       if ($header) {
 	# ark: insert a header string at the start of the page
 	my $mirrorstr=$header;
-	$mirrorstr =~ s/\$url/$rum_url_o->as_string/g;
+	$mirrorstr =~ s/\$url/$rum_as_string/g;
 	insert_at_start( $mirrorstr, $page_ref );
       }
     }
 
-    write_page($lf_url,$page_ref,0);
+    write_page($lf_name,$page_ref,0);
 
     # print "New urls: ",join("\n",@rum_newurls),"\n";
 
@@ -829,11 +845,11 @@ sub get_document {
       print STDERR ", not modified"
 	if $verbose>=0 && $w3http::result==304;
       
-      $rum_urlstat{$rum_url_o->as_string}=$NOTMOD;
+      $rum_urlstat{$rum_as_string}=$NOTMOD;
 
       last unless $mine_urls;
       
-      $rum_newurls=get_references($lf_url);
+      $rum_newurls=get_references($lf_name);
 
       # print "New urls: ",ref($rum_newurls),"\n";
       
@@ -852,7 +868,7 @@ sub get_document {
       # files, because I put it there as I pull them in.
       last unless $$page_ref =~ /<HTML/i;
       
-      warn "$lf_url is a html file\n" if $debug;
+      warn "$lf_name is a html file\n" if $debug;
       
       # It's a html document
       print STDERR ", mining URLs" if $verbose>=1;
@@ -860,7 +876,7 @@ sub get_document {
       # This will give us a list of absolute urls
       (undef,@rum_newurls) = 
 	&htmlop::process($$page_ref,$htmlop::NODOC,
-			 $htmlop::ABS,$rum_url_o->as_string,
+			 $htmlop::ABS,$rum_as_string,
 			 $htmlop::USESAVED,'W3MIR',
 			 $htmlop::LIST);
     }
@@ -870,32 +886,25 @@ sub get_document {
   }
 	
   if ($w3http::result==302 || $w3http::result==301) { # Redirect
-    $rum_urlstat{$rum_url_o->as_string}=$REDIR;
-
     # Cern and NCSA httpd sends 302 'redirect' if a ending / is
     # forgotten on a url.  More recent httpds send 301 'permanent
     # redirect' in this case.  Here we check if the difference in URLs
     # is just a / and if so push the url again with the / added.  This
-    # code only works if the http server has the right idea about it's
+    # code only works if the http server has the right idea about its
     # own name.
     #
     # 18/3/97: Added code to quene redirected-to-URLs that are within
     # the scope of the retrival.
-    #
-    # This redirect code could be enhanced to handle other redirects
-    # to other places within the scope of the mirroring, that would,
-    # however, require symlinks, ersatz web pages in place of the
-    # redirected doc, or other ... klunky things.  Or adding
-    # translation rules and editing the referers, this is slated for
-    # v2.
     my $new_rum_url;
 
+    $rum_urlstat{$rum_as_string}=$REDIR;
+
     # Absolutify the new url, it might be relative to the requested
-    # document.  That's a ugly feature in some servers.
+    # document.  That's a ugly wart on some servers/admins.
     $new_rum_url=url $w3http::headval{'location'};
     $new_rum_url=$new_rum_url->abs($rum_url_o);
 
-    print REDIRS $rum_url_o->as_string,' -> ',$new_rum_url->as_string,"\n"
+    print REDIRS $rum_as_string,' -> ',$new_rum_url->as_string,"\n"
       if $fixup;
 
     if ($immediate_redir) {
@@ -905,17 +914,21 @@ sub get_document {
 
     $new_rum_url=$new_rum_url->as_string;
 
-    if ($rum_url_o->as_string.'/' eq $new_rum_url) {
+    if ($rum_as_string.'/' eq $new_rum_url) {
+      if (grep { $rum_as_string eq $_; } @root_urls) {
+	print STDERR "\nw3mir: missing / in a start URL detected.  Please fix commandline/config file.\n";
+	exit(1);
+      }
       print STDERR ", missing /\n";
       quene($new_rum_url);
       # Initialize referer to something meaningful
-      $rum_referers{$new_rum_url}=$rum_referers{$rum_url_o->as_string};
+      $rum_referers{$new_rum_url}=$rum_referers{$rum_as_string};
     } else {
       print STDERR " =>> $new_rum_url";
       if (want_this($new_rum_url)) {
 	print STDERR ", getting that\n";
 	quene($new_rum_url);
-	$rum_referers{$new_rum_url}=$rum_referers{$rum_url_o->as_string};
+	$rum_referers{$new_rum_url}=$rum_referers{$rum_as_string};
       } else {
 	print STDERR ", don't want it\n";
       }
@@ -928,11 +941,11 @@ sub get_document {
       $w3http::result==406 || # Not Acceptable, hmm, belongs here?
       $w3http::result==410) { # Gone - no forwarding address known
 
-    $rum_urlstat{$rum_url_o->as_string}=$ENOTFND;
+    $rum_urlstat{$rum_as_string}=$ENOTFND;
     &handleerror;
     print STDERR "Was refered from: ",
-      join(',',@{$rum_referers{$rum_url_o->as_string}}),
-      "\n" if defined(@{$rum_referers{$rum_url_o->as_string}});
+      join(',',@{$rum_referers{$rum_as_string}}),
+      "\n" if defined(@{$rum_referers{$rum_as_string}});
     return ();
   }
 
@@ -949,12 +962,12 @@ sub get_document {
     # A www-authenticate reply header should acompany a 401 message.
     if (!exists($w3http::headval{'www-authenticate'})) {
       warn "w3mir: Server indicated authentication failure but gave no www-authenticate reply\n";
-      $rum_urlstat{$rum_url_o->as_string}=$NEVERMIND;
+      $rum_urlstat{$rum_as_string}=$NEVERMIND;
     } else {
       # Unauthorized
       if ($www_auth) {
 	# Failed when authorization data was supplied.
-	$rum_urlstat{$rum_url_o->as_string}=$NEVERMIND;
+	$rum_urlstat{$rum_as_string}=$NEVERMIND;
 	print STDERR ", authorization failed data needed for ",
 	$w3http::headval{'www-authenticate'},"\n"
 	  if ($verbose>=0);
@@ -968,7 +981,7 @@ sub get_document {
 	} else {
 	  print ", authorization needed: ",
 	    $w3http::headval{'www-authenticate'},"\n";
-	  $rum_urlstat{$rum_url_o->as_string}=$NEVERMIND;
+	  $rum_urlstat{$rum_as_string}=$NEVERMIND;
 	}
       }
     }
@@ -1019,13 +1032,15 @@ sub batch_get {
   my $rum_url=shift;
   my $lf_url;
 
-  return unless robot_check(url $rum_url);
+  $rum_url_o = url $rum_url;
+
+  return unless robot_check($rum_url_o);
 
   ($lf_url=$rum_url) =~ s~.*/~~;
   if (!defined($lf_url) || $lf_url eq '') {
     ($lf_url=$rum_url) =~ s~/$~~;
     $lf_url =~ s~.*/~~;
-    $lf_url .= '-$indexname';
+    $lf_url .= "-$indexname";
   }
 
   warn "Batch get: $rum_url -> $lf_url\n" if $debug;
@@ -1062,8 +1077,6 @@ sub mirror {
 
     # Figure out the filename for our local filesystem.
     $lf_url.=$indexname if $lf_url =~ m~/$~ || $lf_url eq '';
-    # Make all intermediate directories
-    &mkdir($lf_url) if $s==0;
 
     @new_rum_urls = get_document($rum_url_o,$lf_url);
 
@@ -1246,7 +1259,11 @@ sub clean_disk {
   # This does two things:  For each file or directory found:
   # - Increases entry count for the container directory
   # - If it's a file: $lf_file{relative_path}=$FILEHERE;
-  find(\&find_files,'./');
+
+  chop(@root_dirs);
+  print STDERR "Looking in: ",join(", ",@root_dirs),"\n" if $debug;
+
+  find(\&find_files,@root_dirs);
 
   # ***** 2. Find out what files we ought to have *****
   #
@@ -1259,7 +1276,7 @@ sub clean_disk {
     $lf_url.=$indexname if $lf_url =~ m~/$~ || $lf_url eq '';
 
     # find prefixes ./, we must too.
-    $lf_url="./".$lf_url;
+    $lf_url="./".$lf_url unless substr($lf_url,0,1) eq '/';
 
     # Ignore if file does not exist here.
     next unless exists($lf_file{$lf_url});
@@ -1308,7 +1325,7 @@ sub clean_disk {
 
   # Remove all files we don't want removed from list of files present:
   foreach $lf_url (keys %nodelete) {
-    print STDERR "Not deleting: $lf_url\n" if $verbose>=0;
+    print STDERR "Not deleting: $lf_url\n" if $verbose>=1;
     delete $lf_file{$lf_url} || delete $lf_file{'./'.$lf_url};
   }
   
@@ -1356,7 +1373,7 @@ sub find_files {
   # lf_dir{<dir>): Number of files in directory.
   
   lstat($_);
-  
+
   $lf_dir{$File::Find::dir}++;
 
   if (-f _) {
@@ -1431,23 +1448,38 @@ sub quene {
 
 
 sub root_quene {
-  # Quene function for root urls
+  # Quene function for root urls and directories.  One or the other might
+  # be boolean false, in that case, don't quene it.
+
   my $root_url_o;
 
-  my($root_url)=$_[0];
+  my($root_url)=shift;
+  my($root_dir)=shift;
 
   die "w3mir: No fragments in start URLs :".$root_url."\n"
     if $root_url =~ /\#/;
 
-  $root_url_o=url $root_url;
+  if ($root_dir) {
+    print "Root dir: $root_dir\n" if $debug;
+    $root_dir="./$root_dir" unless substr($root_dir,0,1) eq '/' or
+      substr($root_dir,0,2) eq './';
+    push(@root_dirs,$root_dir);
+  }
 
-  # URL canonification, or what we do of it at least.
-  $root_url_o->host($root_url_o->host);
 
-  warn "Root quene: ".$root_url_o->as_string."\n" if $debug;
+  if ($root_url) {
+    $root_url_o=url $root_url;
 
-  push(@root_urls,$root_url_o->as_string);
-  return $root_url_o;
+    # URL canonification, or what we do of it at least.
+    $root_url_o->host($root_url_o->host);
+
+    warn "Root quene: ".$root_url_o->as_string."\n" if $debug;
+
+    push(@root_urls,$root_url_o->as_string); 
+
+    return $root_url_o;
+ }
+
 }
 
 
@@ -1567,21 +1599,11 @@ sub movefile {
 
   }
 
-#  if ($win32) {
-    # Greg Lindhorst says rename works now
-    # szurgot: rename won't work... It has to be move, also we have to
-    # convert the name. In the end, I want this to be perl functions,
-    # but for now, this'll stand.
-#    $new =~ s|/|\\|g;
-#    system("move $old $new > $nulldevice");
-#    warn "Problem moving $old to $new...\n",return 0 if $?;
-#  } else {
-    if ($new ne '-' && $new ne $nulldevice) {
-      warn "MOVING $old -> $new\n" if $debug;
-      rename($old,$new) || 
-	warn "Could not rename $old to $new: $!\n",return 0;
-    }
-#  }
+  if ($new ne '-' && $new ne $nulldevice) {
+    warn "MOVING $old -> $new\n" if $debug;
+    rename($old,$new) || 
+      warn "Could not rename $old to $new: $!\n",return 0;
+  }
   return 1;
 }
 
@@ -1737,7 +1759,10 @@ sub process_tag {
   my $lf_url_o; # ... and it's object
   my $key;
 
-  print STDERR "\nProcess Tag: $tag_name, URL attributes: ", join(', ',@{$url_attrs}),"\nOrigin:",$base_url,"\n" if $debug>2;
+  print STDERR "\nProcess Tag: $tag_name, URL attributes: ", 
+  join(', ',@{$url_attrs}),"\nbase_url: ",$base_url,"\nlf_referer: ",
+  $lf_referer,"\n" 
+    if $debug>2;
 
   $lf_referer =~ s~^/~~;
   $lf_referer = "file:/$lf_referer";
@@ -1745,14 +1770,22 @@ sub process_tag {
   foreach $key (@{$url_attrs}) {
     if (defined($$attrs{$key})) {
       $rum_url=$$attrs{$key};
-      warn "$key = $rum_url\n" if $debug;
+      printf STDERR "$key = $rum_url\n" if $debug;
       $lf_url=apply($rum_url);
       if (defined($lf_url)) {
-	$lf_url =~ s~^/~~; # Remove leading / to avoid doubeling
+
+	printf STDERR "Transformed to $lf_url\n" if $debug>2;
+
+	$lf_url =~ s~^/~~;  # Remove leading / to avoid doubeling
 	$lf_url_o=url "file:/$lf_url";
-      
+
 	# Save new value in the hash
 	$$attrs{$key}=($lf_url_o->rel($lf_referer))->as_string;
+	# Older versions of w3mir does not return fully optimized
+	# relative references.  This can lead to problems if apply
+	# rules change the basename of the URL.  So if 
+	$$attrs{$key} =~ s~[^/]*\#~\#~;
+	print STDERR "New value: ",$$attrs{$key},"\n" if $debug>2;
 
 	# If there is potential information loss save the old value too
 	$$attrs{"W3MIR".$key}=$rum_url if $infoloss;
@@ -1838,7 +1871,7 @@ sub parse_args {
     } elsif ($f =~ /^http:/) {
       my ($rum_url_o,$rum_reurl,$rum_rebase,$server);
 
-      $rum_url_o=root_quene($f);
+      $rum_url_o=root_quene($f,'./');
 
       $rum_rebase = quotemeta( ($rum_url_o->as_string =~ m~^(.*/)~)[0] );
 
@@ -1939,10 +1972,11 @@ sub parse_cfg_file {
       # A two argument URL: line?
       if ($value =~ m/^(.+)\s+(.+)/i) {
 	# Two arguments.
-	$rum_url_o=root_quene($1);
 	# The last is a directory, it must end in /
 	$lf_dir=$2;
 	$lf_dir.='/' unless $lf_dir =~ m~/$~;
+
+	$rum_url_o=root_quene($1,$lf_dir);
 
 	# The first is a URL, make it more canonical, find the base.
 	# The namespace confusion in this section is correct.(??)
@@ -1966,7 +2000,7 @@ sub parse_cfg_file {
 	  quotemeta("http://".$rum_url_o->netloc."/")."/".$ipost.";\n";
 
       } else {
-	$rum_url_o=root_quene($value);
+	$rum_url_o=root_quene($value,'./');
 
 	$rum_rebase = quotemeta( ($rum_url_o->as_string =~ m~^(.*/)~)[0] );
 
@@ -1984,15 +2018,18 @@ sub parse_cfg_file {
       if ($value =~ m/^(.+)\s+(.+)/i) {
 	my ($rum_url_o,$lf_dir,$rum_reurl,$rum_rebase);
 	# Two arguments.
+	# The last is a directory, it must end in /
+	# print STDERR "URL ",$1," DIR ",$2,"\n";
+	$lf_dir=$2;
+	$lf_dir.='/' unless $lf_dir =~ m~/$~;
+
 	if ($key eq 'also-quene') {
-	  $rum_url_o=root_quene($1);
+	  $rum_url_o=root_quene($1,$lf_dir);
 	} else {
+	  root_quene("",$lf_dir);
 	  $rum_url_o=url $1;
 	  $rum_url_o->host(lc $rum_url_o->host);
 	}
-	# The last is a directory, it must end in /
-	$lf_dir=$2;
-	$lf_dir.='/' unless $lf_dir =~ m~/$~;
 
 	# The first is a URL, find the base
 	$rum_rebase = quotemeta( ($rum_url_o->as_string =~ m~^(.*/)~)[0] );
@@ -2023,7 +2060,7 @@ sub parse_cfg_file {
     }
 
     if ($key eq 'quene') {
-      root_quene($value);
+      root_quene($value,"");
       next;
     }
 
@@ -2794,20 +2831,47 @@ or
 
   Ignore-RE: m~/.*/.*/.*/~
 
-and so on.  "#" cannot be used as delimiter as it is the comment
-character in the configuration file.
+and so on. "#" cannot be used as delimiter as it is the comment
+character in the configuration file. This also has the bad side-effect
+of making you unable to match fragment names (#foobar) directly.
+Fortunately perl allows writing ``#'' as ``\043''.
+
+You must be very carefull of using the RE anchors (``^'' and ``$''
+with the RE versions of these and the I<Apply> directive. Given the
+rules:
+
+  Fetch-RE: m/foobar.cgi$/
+  Ignore: *.cgi
+
+the all files called ``foobar.cgi'' will be fetched. However, if the
+file is referenced as ``foobar.cgi?query=mp3'' it will I<not> be
+fetched since the ``$'' anchor will prevent it from matching the
+I<Fetch-RE> directive and then it will match the I<Ignore> directive
+instead. If you want to match ``foobar.cgi'' but not ``foobar.cgifu''
+you can use perls ``\b'' character class which matches a word
+boundrary:
+
+  Fetch-RE: m/foobar.cgi\b/
+  Ignore: *.cgi
+
+which will get ``foobar.cgi'' as well as ``foobar.cgi?query=mp3'' but
+not ``foobar.cgifu''. BUT, you must keep in mind that a lot of
+diffetent characters make a word boundrary, maybe something more
+subtle is needed.
 
 =item Apply: I<regular-expression>
 
-This is used to change a URL into another URL.  It is a potentially
-I<very> powerful feature.  It has not been used for any real work.
-Anyone using this feature should write to the w3mir authors if they
-find that it needs extentions.
+This is used to change a URL into another URL. It is a potentially
+I<very> powerful feature, and it also provides ample chance for you to
+shoot your own foot. The whole aparatus is somewhat tenative, if you
+find there is a need for changes in how Apply rules work please
+E-mail. If you are going to use this feature please read the
+documentation for I<Fetch-RE> and I<Ignore-RE> first.
 
 The B<Apply> expressions are applied, in sequence, to the URLs in
-their absolute form.  I.e., with the whole
-http://host:port/dir/ec/tory/file URL.  It is after this B<w3mir>
-checks if a document is within the scope of retrieval or not.  That
+their absolute form. I.e., with the whole
+http://host:port/dir/ec/tory/file URL. It is only after this B<w3mir>
+checks if a document is within the scope of retrieval or not. That
 means that B<Apply> rules can be used to change certain URLs to fall
 inside the scope of retrieval, and vice versa.
 

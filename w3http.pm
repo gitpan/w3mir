@@ -1,7 +1,7 @@
 # -*- perl -*-
 # w3http.pm	--- send http requests, janl's 12" mix for w3mir
 #
-$VERSION=1.0.18;
+$VERSION=1.0.19;
 #
 # This implements http/1.0 requests.  We'll have problems with http/0.9
 # This is in no way specific to w3mir.
@@ -107,7 +107,10 @@ $VERSION=1.0.18;
 #     janl 01/22/97 -- Proxy authentication as outlined by Christian Geuer
 #     janl 02/20/97 -- Complex 'content-type' headers handled. -> 1.0.17
 #     janl 04/20/97 -- Only newline convert text/html, everything else is
-#			handled as binary.
+#			handled as binary. -> 1.0.18
+#     janl 12/05/97 -- Store tmpfile in its final destination directory
+#			avoiding asking movefile move it across filesystems.
+#			-> 1.0.19
 
 package w3http;
 
@@ -116,6 +119,19 @@ use Socket;
 use HTTP::Date;
 use Sys::Hostname;
 use URI::URL;
+
+# Suplementary libwww-perl:
+sub URI::URL::_generic::basename {
+  my $self = shift;
+  my @p = $self->path_components;
+  my $old = $p[-1];
+  if (@_) {
+    splice(@p, -1, 1, shift);
+    $self->path_components(@p)
+  }
+  $old;
+}
+
 
 END { 
   # Remove tmp file and such in here.  That means that main:: gotta catch
@@ -177,7 +193,7 @@ $proxypasswd='';		# Password for proxy authentication
 $xfbytes=0;			# 0 bytes transfered, cumulative
 $headbytes=0;			# 0 bytes of headers, cumulative
 $doclen=0;			# 0 bytes in doc, pr. document
-my $tmpfile="w3mir.tmp.$$";	# Temporary filename
+my $tmpfile="w3mir$$.tmp";	# Temporary filename
 $verbose=0;			# Verbosenes, 0: silent, 1: progress info
 
 # Query opcodes
@@ -385,14 +401,15 @@ sub query {
   $inp=' 'x$buflen;
   $doclen=$chime=$plaintext=$plaintexthtml=$save=0;
 
-#  shutdown(FS,1);  # Half-close socket, sending now not allowed
+  # Breaks some M$ ISS servers:
+  # shutdown(FS,1);  # Half-close socket, sending now not allowed
   
   print STDERR ", receiving header" if $verbose>0;
   
   # Retrive HTTP response HEADER.  Why do I use recv and not <FS>?
   # Because then the timeout can work correctly!
   while (1) {
-    # Set up alarm to ensure recv returns within a reasonable timefram
+    # Set up alarm to ensure recv returns within a reasonable timeframe
     alarm($timeout) if $hasAlarm;
     $err = recv(FS,$inp,$buflen,0);
     # recv returned, cancel alarm.
@@ -406,8 +423,8 @@ sub query {
       $restext='timeout fetching document';
       $!=0;
       if ($save) {
-	unlink($tmpfile) || 
-	  warn "Could not unlink $tmpfile: $!\n";
+	unlink($tmpf) || 
+	  warn "Could not unlink $tmpf: $!\n";
       }
       return &resetsign;
     }
@@ -459,6 +476,8 @@ sub query {
   
   # Pick headers to pieces
   ($result,$restext,%headval)=&analyze_header($header);
+
+  print STDERR "REPLY:\n",$header,"\n---\n" if $debug>=2;
   
   # Check if the document is a non-encoded text document. The contents
   # could be (x-)?compress or (x-)gzip coded (compressed in other
@@ -474,12 +493,19 @@ sub query {
     
     # Save this to a file, or not?  Never save html files.
     if ($saveto && !$plaintexthtml) {
-      
       # We're going to save this document directly into a file.  This
       # stresses the VM less when getting the large binares so often
       # found at cool sites.
       $save=1;
-      $tmpf=$tmpfile;
+
+      # Find a temporary filename
+      $tmpf=url "file:$saveto";
+      $tmpf->basename($tmpfile);
+      $tmpf=$tmpf->unix_path;
+      
+      # Find suitable final filename, one with no URL escapes
+      $saveto=(url "file:$saveto")->unix_path;
+
       # If output to stdout then send it directly there rather than
       # using disk unnecesarily.
       $tmpf='-' if ($saveto eq '-');
@@ -487,7 +513,7 @@ sub query {
       warn "USING TMPFILE: $tmpf\n" if $debug;
       
       open(SAVE,">$tmpf") || 
-	die "Could not open tmp file: $tmpfile: $!\n";
+	die "Could not open tmp file: $tmpf: $!\n";
       binmode SAVE;		# It's a binary file...
     }
     
@@ -512,8 +538,8 @@ sub query {
 	warn "Timeout while waiting for HTTP reply to finish\n";
 	$!=0;
 	if ($save) {
-	  unlink($tmpfile) || 
-	    warn "Could not unlink $tmpfile: $!\n";
+	  unlink($tmpf) || 
+	    warn "Could not unlink $tmpf: $!\n";
 	}
 	return &resetsign;
       }
@@ -542,7 +568,7 @@ sub query {
       
       if ($save) {
 	$err = print SAVE $document;
-	die "Error writing $tmpfile: $!\n" unless $err;
+	die "Error writing $tmpf: $!\n" unless $err;
 	$document='';
       }
 
@@ -556,8 +582,7 @@ sub query {
     
     if ($save) {
       close(SAVE);
-      
-      &main::movefile($tmpfile,$saveto);
+      &main::movefile($tmpf,$saveto);
     }
     
     # janl: Paranoia check. This going off has mostly been a

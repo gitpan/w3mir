@@ -1,7 +1,5 @@
-This is how you install w3mir on a Unix system:
-
-(I don't know how to install w3mir on a win32 system.  Please e-mail
-instructions if you know how)
+This is how you install w3mir on a Unix system. Please see the file
+INSTALL.w32 for install instructions for win32 systems.
 
 INSTALLING PREREQUISITES:
 

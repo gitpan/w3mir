@@ -1,6 +1,7 @@
 Artistic
 Changes
 INSTALL
+INSTALL.w32
 MANIFEST
 Makefile.PL
 README

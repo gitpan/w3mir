@@ -92,7 +92,11 @@ Some of these are speculative, some others are very useful.
   references are on a slow link while the mirror is on a fast link.
 - FTP support (easy if through a http style ftp proxy, but is that what
   we want?)
-- SSL support
+- SHTTP/SSL support
+- Add a 3rd argument to URL/Also that denotes the depth of documents to
+  be retrived under each, this would autimatically generate fetch/ignore
+  rules.  How well these work would be dependent on the order of the
+  URL/Also directives though.  Must be documented.
 - Retrive recursively until N-th order links are reached.  This
   differs siginificantly from directory recursion which we do now.  When
   this is done w3mir should also know the difference between inline and

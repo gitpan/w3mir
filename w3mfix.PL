@@ -92,7 +92,12 @@ use lib '/hom/janl/lib/perl';
 # 2 Gather list of all documents needing editing
 # 3 Edit them
 #
-
+# 09/05/98 janl		- Only rewrite .../ to .../$indexname if the attribute
+#			  does not refer to a directory. -> 0.6.2
+# 12/05/98 janl		- Use ->local_path to determine filename -> 0.6.3
+# 22/05/98 janl		- .../#foo was not being rewritten to 
+#			  .../$indexname#foo -> 0.6.4
+#
 require 5.002;
 
 use vars qw($win32);
@@ -106,11 +111,12 @@ BEGIN {
 use Carp;
 use htmlop;
 use URI::URL;
+use URI::Escape;
 
 use strict;
 
 my $VERSION;
-$VERSION='0.6.1';
+$VERSION='0.6.5';
 
 my $debug=0;			# Not debugging
 my $verbose=0;
@@ -176,6 +182,43 @@ my %lf_edited=();		# Edited this file yet?
 my $list;			# List url on STDOUT?
 
 my %stat=();			# stat($lf_url): 'd' for dir, 'f' for others
+
+# ######################### Libwww-perl addons:
+
+sub URI::URL::_generic::unix_path {
+  my $self = (shift)->clone;
+
+  $self->frag(undef);
+  $self->scheme("file");
+  $self->unix_path;
+}
+
+
+sub URI::URL::_generic::basename {
+  my $self = shift;
+  my @p = $self->path_components;
+  my $old = $p[-1];
+  if (@_) {
+    splice(@p, -1, 1, shift);
+    $self->path_components(@p)
+  }
+  $old;
+}
+
+
+sub URI::URL::_generic::path_components {
+    my $self = shift;
+    my $old = $self->{'path'};
+    $old = '' unless defined $old;
+    $old = "/$old" if $old !~ m|^/| && defined $self->{'netloc'};
+    if (@_) {
+	$self->_elem('path',
+		     join("/", map { uri_escape($_,$URI::URL::reserved)
+				   } @_));
+    }
+    map { uri_unescape($_) } split("/", $old, -1);
+}
+
 
 # ######################### Configuration/argument parsing
 
@@ -498,7 +541,7 @@ sub stat {
   my $file = shift;
 
   if (exists($stat{$file})) {
-    warn "++Cache hit: $file\n" if $debug;
+    print STDERR "++Cache hit: $file\n" if $debug;
   } else {
     stat($file);
     if (-e _) {
@@ -506,7 +549,7 @@ sub stat {
     } else {
       $stat{$file}='n';
     }
-    warn "--Cache miss: $file\n" if $debug;
+    print STDERR "--Cache miss: $file\n" if $debug;
   }
   return $stat{$file};
 }
@@ -521,7 +564,7 @@ sub read_state {
 
   $reffile="referers" if $win32;
 
-  warn "reading $reffile\n" if $verbose>0;
+  print STDERR "reading $reffile\n" if $verbose>0;
   open(REFERERS,"< $reffile") ||
     die "Could not open $reffile for reading: $!\n";
 
@@ -542,9 +585,9 @@ sub read_state {
   my $right;
   my $tmp;
 
-  $redirfile=".redirs" if $win32;
+  $redirfile="redirs" if $win32;
 
-  warn "reading $redirfile\n" if $verbose>0;
+  print STDERR "reading $redirfile\n" if $verbose>0;
   open(REDIRS,"< $redirfile") ||
     die "Could not open $redirfile for reading: $!\n";
 
@@ -586,14 +629,13 @@ sub process_tag {
 
 #  print STDERR "\nProcess Tag: $tag_name, URL attributes: ", join(', ',@{$url_attrs}),"\nOrigin:",$base_url,"\n"; # if $debug>2;
 
-  $lf_referer =~ s~^/~~;
-  $lf_referer = "file:/$lf_referer";
+  substr($lf_referer,0,0)='./' unless substr($lf_referer,0,1) eq '/';
 
   foreach $key (@{$url_attrs}) {
     if (defined($$attrs{$key})) {
       $orig_rum_url=$rum_url=$$attrs{$key};
 
-      warn "\n$key = $rum_url\n" if $debug;
+      print STDERR "\n$key = $rum_url\n" if $debug;
 
       # Apply redirects:
       $redirs=0;
@@ -601,7 +643,8 @@ sub process_tag {
 	$il=1;
 	while (exists($rum_redirected{$rum_url})) {
 	  die "Too many redirects in a row\n" if $redirs++>32;
-	  warn "$rum_url -> ".$rum_redirected{$rum_url}."\n" if $debug;
+	  print STDERR "$rum_url -> ".$rum_redirected{$rum_url}."\n"
+	    if $debug;
 	  $rum_url=$rum_redirected{$rum_url};
 	}
       }
@@ -615,37 +658,43 @@ sub process_tag {
 
 	if ($stat eq 'f' && $lf_url =~ m~/$~) {
 	  # It's a file, remove trailing /
-	  warn "****** File / fixup of $lf_url\n" if $debug;
+	  print STDERR "****** File / fixup of $lf_url\n" if $debug;
 	  $il=1;
 	  substr($lf_url,length($lf_url)) = '';
 	} elsif ($stat eq 'd' && !($lf_url =~ m~/$~) ) {
 	  # It's a directory, add a trailing /
-	  warn "****** Directory / fixup of $lf_url\n" if $debug;
+	  print STDERR "****** Directory / fixup of $lf_url\n" if $debug;
 	  $il=1;
 	  $lf_url .= '/';
 	}
 
-	if ( $doindex && $lf_url =~ m~/$~ && 
-	     &stat("$lf_url/$indexname") eq 'f' ) {
-	  $lf_url .= $indexname;
+	substr($lf_url,0,0)='./' unless substr($lf_url,0,1) eq '/';
+
+	$lf_url_o=url $lf_url;
+	my $tmp=$lf_url_o->clone;
+	$tmp->basename($indexname);
+
+	if ( $doindex && $lf_url_o->basename eq "" && 
+	     &stat($tmp->unix_path) eq 'f' &&
+	     !$htmlop::isdir{$key}) {
+	  $lf_url_o=$tmp;
 	  $il=1;
-	  warn "indexname adjusted\n" if $debug;
+	  print STDERR "indexname adjusted to ",$lf_url_o->as_string,"\n"
+	    if $debug;
 	}
 		 
-	$lf_url =~ s~^/~~; # Remove leading / to avoid doubeling
-	$lf_url_o=url "file:/$lf_url";
-      
-	# Save new value in the hash
-	$$attrs{$key} = ($lf_url_o->rel($lf_referer))->as_string;
+	# Save new value in the hash, make it a file url to get 'rel' working
+	$lf_url_o->scheme('file');
+	$$attrs{$key} = ($lf_url_o->rel("file:".$lf_referer))->as_string;
 
-	warn "Saved ".$$attrs{$key}."\n" if $debug;
+	printf STDERR "Saved ".$$attrs{$key}."\n" if $debug;
 
 	# If there is potential information loss save the old value too
 	$$attrs{"W3MIR".$key}=$orig_rum_url if $il;
 
       } elsif ($redirs>0) {
 	$$attrs{$key}=$rum_url;
-	warn "Saved ".$$attrs{$key}."\n" if $debug;
+	print STDERR "Saved ".$$attrs{$key}."\n" if $debug;
 	$$attrs{"W3MIR".$key}=$orig_rum_url;
       }
     }
@@ -664,6 +713,9 @@ sub edit_html_file {
 
   # Figure out the filename for our local filesystem.
   $lf_url.=$indexname if $lf_url =~ m~/$~ || $lf_url eq '';
+
+  # Stuff in need of unquoting?
+  $lf_url = (url "file:$lf_url")->local_path if $lf_url =~ /\%\d\d/;
 
   if (exists($lf_edited{$lf_url})) {
     print STDERR "Already edited $lf_url\n" if $debug;
@@ -699,7 +751,7 @@ sub edit_html_file {
 
   print STDERR "w3mfix: $lf_url" if $verbose>=0;
   
-  warn "$lf_url is a html file\n" if $debug;
+  print STDERR "$lf_url is a html file\n" if $debug;
 
   print STDERR " reading" if $verbose>0;
   
@@ -806,7 +858,8 @@ sub edit_as_needed {
       if (exists($rum_redirected{$o_rum_url})) {
 	while (exists($rum_redirected{$rum_url})) {
 	  die "Too many redirects in a row\n" if $redirs++>32;
-	  warn "$rum_url -> ".$rum_redirected{$rum_url}."\n" if $debug;
+	  print STDERR "$rum_url -> ".$rum_redirected{$rum_url}."\n"
+	    if $debug;
 	  $rum_url=$rum_redirected{$rum_url};
 	}
       }
@@ -858,9 +911,11 @@ if (!$rc) {
   $rc='w3mir.ini' if $win32;
 }
 
-warn "w3mfix: rc file: $rc\n" if $verbose>0;
+print STDERR "w3mfix: rc file: $rc\n" if $verbose>0;
 
 &parse_cfg_file($rc);
+
+# $chdirto is ignored, w3mir already did it
 
 # Compile second order code
 

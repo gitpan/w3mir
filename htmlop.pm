@@ -1,6 +1,6 @@
 # -*-perl-*-
 # htmlop.pl: Do operations on html documents.
-$VERSION=0.2.1;
+$VERSION=0.2.2;
 #
 # Original source from Bjørn Borud, without it I would not have atempted
 # this. In this incarnation it bears no resemblance to Bjørns code.
@@ -57,6 +57,7 @@ $VERSION=0.2.1;
 # janl    08/02/98 - Hacked for speed.  Went from 43s to 9s on a 170K
 #		     document -> 0.2.  Thanks to Rune Frøysa who taunted me.
 # janl	  09/04/98 - More tolerant about what constitutes a newline -> 0.2.1
+# janl	  09/05/98 - Export %isdir -> 0.2.2
 
 package htmlop;
 
@@ -65,7 +66,7 @@ use URI::URL;
 use strict;
 # Global variables
 use vars qw($ABS $REL $LIST $CANON $URLSUB $NODOC $URLPROC $NREL);
-use vars qw($SAVEURL $USESAVED $TAGCALLBACK $debug);
+use vars qw($SAVEURL $USESAVED $TAGCALLBACK $debug %isdir);
 
 # These are for the smartrel routines
 my $url_origin;
@@ -195,7 +196,7 @@ my(%relative) = (
 	CODEBASE => [ 'CLASSID', 'DATA', 'CODE', 'ARCHIVE' ],
         );
 
-my(%isdir) = (
+%isdir = (
 	# These tags refer to directories:
 	CODEBASE => 1
 	);
@@ -555,7 +556,7 @@ sub process {
 	  warn "TAGCALLBACK;\n" if $debug;
 	  $fun=$_[$i++];
 	  $arg=$_[$i++];
-	  &$fun($arg,$baseurl, $tagname, 
+	  &$fun($arg,$baseurl,$tagname, 
 		(defined($urls{$tagname})? $urls{$tagname}: undef),
 		\%attrval);
 	} else {
