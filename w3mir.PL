@@ -217,7 +217,12 @@ use lib '/hom/janl/lib/perl';
 #   janl 11/01/98 -- PDF files with no URLs does not cause warnings now.
 #		  -- Close REFERERS and REDIRECTS before calling w3mfix
 #   janl 22/01/98 -- Proxy authentication as outlined by Christian Geuer
-#   janl 04/02/98 -- Version 1
+#   janl 04/02/98 -- Version 1pre1
+#   janl 18/02/98 -- Fixed wild_re after tip by Prentiss Riddle.
+#		  -- Version 1pre2
+#   janl 20/02/98 -- w3http updated to handle complex content-types.
+#		  -- Fix wild_re more, bug noted by James Dumser
+#		  -- 1.0pre3
 #
 # Variable name discipline:
 # - remote, umodified URL.  Variables prefixed 'rum_'
@@ -296,8 +301,8 @@ my $fixopen=0;			# Fixup files open?
 my $indexname='index.html';
 
 my $VERSION;
-$VERSION='1.0pre1';
-$w3http::agent = my $w3mir_agent = "w3mir/$VERSION-22-1-1998";
+$VERSION='1.0pre3';
+$w3http::agent = my $w3mir_agent = "w3mir/$VERSION-20-2-1998";
 my $iref='(commandline)';	# Initial referer
 
 # Derived settings	
@@ -699,7 +704,7 @@ sub get_document {
 
     print STDERR "w3http::result: '",$w3http::result,
     "' doc size: ", length($w3http::document),
-    " doc type: -",$w3http::headval{'content-type'},
+    " doc type: -",$w3http::headval{'CONTENT-TYPE'},
     "- plaintexthtml: ",$w3http::plaintexthtml,"\n"
       if $debug;
 
@@ -757,7 +762,7 @@ sub get_document {
 
       } elsif ($s == 0 &&
 	       ($url_extractor = 
-		$knownformats{$w3http::headval{'content-type'}})) {
+		$knownformats{$w3http::headval{'CONTENT-TYPE'}})) {
 
 	# The knownformats extractors only work on disk files so write
 	# doc to disk if not there already (non-html text will not be)
@@ -1854,8 +1859,10 @@ sub parse_cfg_file {
     next if $_ eq '';
     # Examine remains
     $i++;
+
     ($key, $value) = split(/\s*:\s*/,$_,2);
     $key = lc $key;
+
     $iref=$value,next if ( $key eq 'initial-referer' );
     $header=$value,next if ( $key eq 'header' );
     $pause=numeric($value),next if ( $key eq 'pause' );
@@ -1870,8 +1877,8 @@ sub parse_cfg_file {
       if ( $key eq 'file-disposition' );
     $verbose=nway($value,'quiet','brief','chatty')-1,next
       if ( $key eq 'verbosity' );
-    $w3http::proxyuser=$value if $key eq 'http-proxy-user';
-    $w3http::proxypasswd=$value if $key eq 'http-proxy-passwd';
+    $w3http::proxyuser=$value,next if $key eq 'http-proxy-user';
+    $w3http::proxypasswd=$value,next if $key eq 'http-proxy-passwd';
 
     if ( $key eq 'cd' ) {
       $chdirto=$value;
@@ -1902,6 +1909,7 @@ sub parse_cfg_file {
 	$pragma=0,push(@popts,'no-store') if ($nval==3);
       }
       $cache_header=($pragma?'Pragma: ':'Cache-control: ').join(', ',@popts);
+      next;
     }
 
 
@@ -2006,6 +2014,7 @@ sub parse_cfg_file {
 	print STDERR "w3mir: $value is not a recognized regular expression\n";
 	exit 1;
       }
+      # Fall-through to next cases!
     }
 
     if ($key eq 'fetch' || $key eq 'fetch-re') {
@@ -2018,6 +2027,7 @@ sub parse_cfg_file {
     if ($key eq 'ignore' || $key eq 'ignore-re') {
       my $expr=$value;
       $expr = wild_re($expr).$ipost if ($key eq 'ignore');
+      # print STDERR "Ignore expression: $expr\n";
       $rule_text.=' return 0 if '.$expr.";\n";
       next;
     }
@@ -2062,11 +2072,16 @@ sub parse_cfg_file {
       # exit;
       # Invalidate tmp vars
       $authserver=$authrealm=$authuser=$authpasswd=undef;
+      next;
     }
+
+    next if $key eq 'auth-user' || $key eq 'auth-passwd' || 
+      $key eq 'auth-domain';
 
     if ($key eq 'fetch-options') {
       warn "w3mir: The 'fetch-options' directive has been renamed to 'options'\nw3mir: Please change your configuration file.\n";
       $key='options';
+      # Fall through to 'options'!
     }
 
     if ($key eq 'options') {
@@ -2095,6 +2110,7 @@ sub parse_cfg_file {
 	    die "w3mir: options must be the first directive in the config file.\n";
 	}
       }
+      next;
     }
 
     if ($key eq 'disable-headers') {
@@ -2104,6 +2120,7 @@ sub parse_cfg_file {
 	$do_referer=0,next if $nval==0;
 	$do_user=0,next if $nval==1;
       }
+      next;
     }
 
 
@@ -2120,7 +2137,10 @@ sub parse_cfg_file {
 	$fixup=0,next if $nval==3;
 	# Ignore everyting else
       }
+      next;
     }
+
+    die "w3mir: Unrecognized directive ('$key') in config file $file at line $.\n";
 
   }
   close(CFGF);
@@ -2136,9 +2156,18 @@ sub parse_cfg_file {
 sub wild_re {
   # Here we translate unix wildcard subset to to perlre
   local($_) = shift;
-  s#\*#\.\*#;
-  s#\?#\.#;
-  s#([\/\(\)\\\|\{\}\+)\$\^])#\\$1#g;
+
+  # Quote anything that's RE and not wildcard: / ( ) \ | { } + $ ^
+  s~([\/\(\)\\\|\{\}\+)\$\^])~\\$1~g;
+  # . -> \.
+  s~\.~\\.~g;
+  # * -> .*
+  s~\*~\.\*~g;
+  # ? -> .
+  s~\?~\.~g;
+
+  # print STDERR "wild_re: $_\n";
+
   return $_ = '/'.$_.'/';
 }
 

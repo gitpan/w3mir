@@ -1,6 +1,6 @@
 # -*- perl -*-
 # w3http.pm	--- send http requests, janl's 12" mix for w3mir
-#	version 1.0.16
+#	version 1.0.17
 #
 # This implements http/1.0 requests.  We'll have problems with http/0.9
 # This is in no way specific to w3mir.
@@ -40,6 +40,8 @@
 #       which needs decompression before we can inspect the html) 
 #	The tests are somewhat longwinded so I do it just once here.
 # %w3http::headval: Associative array of header values
+# $w3http::headval{'CONTENT-TYPE'}: Derived content type, stripped of charset
+#		qualifiers and other distractions.
 # $w3http::xfbytes: Transfered bytes, cumulative.  Document part only.
 # $w3http::headbytes: Bytes of headers received, cumulative.
 #
@@ -103,6 +105,7 @@
 #                   -- whoami does not exist on win32, hardwire a default
 #			value (unknown) (also Greg L.) -> 1.0.15
 #     janl 01/22/97 -- Proxy authentication as outlined by Christian Geuer
+#     janl 02/20/97 -- Complex 'content-type' headers handled.
 
 package w3http;
 
@@ -459,11 +462,11 @@ sub query {
   # could be (x-)?compress or (x-)gzip coded (compressed in other
   # words).
   
-  $plaintext=defined($headval{'content-type'}) &&
-    (substr($headval{'content-type'},0,5) eq 'text/' || 0) &&
+  $plaintext=defined($headval{'CONTENT-TYPE'}) &&
+    (substr($headval{'CONTENT-TYPE'},0,5) eq 'text/' || 0) &&
       !defined($headval{'content-encoding'});
   $plaintexthtml=$plaintext && 
-    ($headval{'content-type'} eq 'text/html');
+    ($headval{'CONTENT-TYPE'} eq 'text/html');
   
   if ($result==200) {
     
@@ -628,6 +631,14 @@ sub analyze_header {
     } else {
       $headval{$key}=$value;
     }
+  }
+
+  # See if there are any type parameters in the content-type header
+  # and if so remove them.
+  if (defined($headval{'content-type'})) {
+    my $val=$headval{'content-type'};
+    ($val,undef)=split(';',$val,2) if ($val =~ /;/);
+    $headval{'CONTENT-TYPE'}=$val;
   }
   
   return ($result,$restext,%headval);

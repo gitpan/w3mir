@@ -1,5 +1,5 @@
 # -*-perl-*-
-# htmlop.pl version 0.1.18: Do operations on html documents.
+# htmlop.pl version 0.2.0: Do operations on html documents.
 #
 # Original source from Bjørn Borud, without it I would not have atempted
 # this. In this incarnation it bears no resemblance to Bjørns code.
@@ -53,6 +53,8 @@
 # janl    01/01/98 - Realized applet/object support can't work and changed
 #		     so it's able to work, if conditions are right.
 # janl    04/01/98 - Added html 4.0 tags and attributes.
+# janl    08/02/98 - Hacked for speed.  Went from 43s to 9s on a 170K
+#		     document -> 0.2.  Thanks to Rune Frøysa who taunted me.
 
 package htmlop;
 
@@ -167,7 +169,6 @@ my(%urls) = (
 	# The APPLET and OBJECT tags do not fit into my model for URL
 	# manipulation.  Just looking at CODEBASE might work, if the
 	# URL it names is a browseable directory...
-	# Otherwise interpretation of 
 	APPLET	=> [ 'CODEBASE' ],  # If the codebase dir is browseable
 	OBJECT  => [ 'CODEBASE' ],  # Ditto.  Can't handle DATA attribute now
 
@@ -179,6 +180,7 @@ my(%urls) = (
 	BGSOUND => [ 'SRC' ],
 	FORM	=> [ 'ACTION' ],    # Is this asking for trouble?
 				    # Maybe it should just be absolutized...
+	     			    # On the other hand: It's CGI...
 	);
 
 my(%relative) = (
@@ -191,6 +193,10 @@ my(%relative) = (
 	CODEBASE => [ 'CLASSID', 'DATA', 'CODE', 'ARCHIVE' ],
         );
 
+my(%isdir) = (
+	# These tags refer to directories:
+	CODEBASE => 1
+	);
 
 # Tags that enclose bits we want to leave absolutely alone because they
 # are not very like HTML, or some such.
@@ -252,7 +258,7 @@ sub tagtoken {
     if ($tok eq '=') {
 #      print STDERR " -bad html-" if ($lasttok eq '');
       $tokens{$lasttok}.=&gettoken($_[0]);
-#      print STDERR "STORED: $lasttok = ",$tokens{$lasttok},"\n";
+      print STDERR "STORED: $lasttok = ",$tokens{$lasttok},"\n" if $debug;
     } else {
       $tokens{$tok}=undef;
       $lasttok=$tok;
@@ -264,23 +270,52 @@ sub tagtoken {
 
 sub gettag {
   # Pick out the following things from the remaining html doc:
-  # Everything leading up to the first tag.  The first tag, and its contents.
-  # Modify @_ directly to reduce number of copies of possebly huge
-  # documents kept in memory at once.
-  # Return the body, the tag name, and the attributes (associative array)
-  my(%attr,$tagn,$tagc,$body,$tag);
+  # Everything leading up to the first tag.  The first tag, and its
+  # contents.  Modify @_ directly to reduce number of copies of
+  # possebly huge documents kept in memory at once.  Return the body,
+  # the tag name, and the attributes (associative array)
+  my(%attr,$tagn,$tagc,$body,$tag,$doc);
+
+  $doc=\$_[0];
+
+  my($start,$end,$length);
   
-  unless ($_[0] =~ s/([^<]*)\<([^>]*)>//) {
+  $start=index($$doc,'<');
+
+  if ($start<$[) {
     # EOF
-    $body=$_[0];
-    $_[0]='';
+    $body=$$doc;
+    $$doc='';
     return ($body,'',());
   }
-  $body=$1;
-  $tag=$2;
+
+  $end=index($$doc,'>',$start+1);
   
-  print STDERR "******COMPLETE TAG: $tag\n" if $debug;
+  if ($end<$[) {
+    # This sucks, found no end of the tag...
+    $body=$$doc;
+    $$doc='';
+    return ($body,'',());
+  }
+
+  $length=$end-$start-1;
+
+  $body=substr($$doc,0,$start);
+  $tag=substr($$doc,$start+1,$length);
+
+  # This shortens the string in each itteration, some kind of mechanism
+  # to do it once in a while would speed things up further.  HOWEVER, when
+  # I tried to code this all I got was a _nasty_ memory leak.
+  substr($$doc,0,$end+1)='';
+
+#  print STDERR "------\n";
   
+#  print STDERR "BODY: /$body/\n";
+  print STDERR "COMPLETE TAG: /$tag/\n" if $debug;
+#  print STDERR "REST: /",substr($$doc,0,20),"/\n";
+
+#  print STDERR "------\n";
+
   # Examine tag contents
   if ($tag =~ /^([!?]--)/ || $tag =~ /^(!\w+)/) {
     # Comment or processing dicective, handle specially
@@ -432,7 +467,7 @@ sub process {
 	  $i++;
 	  # Want it to be a URL object
 	  $origin=url $origin unless ref $origin;
-	  # print STDERR 'ABS: ',$origin->as_string,"\n" if $debug;
+	  print STDERR 'ABS: ',$origin->as_string,"\n" if $debug;
 	  next unless defined($urls{$tagname});
 	  foreach $attr (@{$urls{$tagname}}) {
 	    $attrval{$attr}=
@@ -459,10 +494,14 @@ sub process {
 	      if defined($attrval{$attr});
 	  }
 	} elsif ($arg == $LIST) {
-	  # warn "LIST;\n" if $debug;
+	  warn "LIST;\n" if $debug;
 	  next unless exists($urls{$tagname});
 	  foreach $attr (@{$urls{$tagname}}) {
-	    push(@urllist,$attrval{$attr}) if defined($attrval{$attr});
+	    if (exists($attrval{$attr})) {
+	      $attrval{$attr}.='/'
+		if $isdir{$attr} && $attrval{$attr} =~ m~[^/]$~;
+	      push(@urllist,$attrval{$attr});
+	    }
 	  }
 	} elsif ($arg == $SAVEURL) {
 	  warn "SAVEURL;\n" if $debug;
@@ -479,14 +518,14 @@ sub process {
 	  foreach $attr (@{$urls{$tagname}}) {
 	    $attrval{$attr}=$attrval{"$prefix$attr"}
 	      if (defined($attrval{"$prefix$attr"}));
-	    # bug compatability, drop in sometime after w3mir 1.0
+	    # bug compatability, drop sometime after w3mir 1.0
 	    $attrval{$attr}=$attrval{"$prefix-$attr"}
 	      if (defined($attrval{"$prefix-$attr"}));
 	  }
 	} elsif ($arg == $NODOC) {
 	  warn "NODOC;\n" if $debug;
 	} elsif ($arg == $CANON) {
-	  # warn "CANON;\n" if $debug;
+	  warn "CANON;\n" if $debug;
 	} elsif ($arg == $URLPROC || $arg == $NREL) {
 	  # Apply a function to all urls.
 	  # NREL = Special case of $URLPROC, apply internal function.
@@ -511,6 +550,7 @@ sub process {
 	      if defined($attrval{$attr});
 	  }
 	} elsif ($arg == $TAGCALLBACK) {
+	  warn "TAGCALLBACK;\n" if $debug;
 	  $fun=$_[$i++];
 	  $arg=$_[$i++];
 	  &$fun($arg,$baseurl, $tagname, 
@@ -562,12 +602,7 @@ sub smartrel {
   # 'smart' relativisation function, uses .. to refer to things up to
   # $doc_top level.  Outside that scope it stays absolute.
   #
-  # Example to clear mind:
-  # url_origin: http://www.math.uio.no/doc/linux/
-  # doc_top:    http://www.math.uio.no/
-  # url:        http://www.math.uio.no/doc/mail/top.html
-  # return:     ../mail/top.html
-  #
+  # The rel function itself is now in libwww-perl
   
   my($url_o)=@_;
 
@@ -601,17 +636,3 @@ sub smart_setup {
 }
 
 1;
-
-__END__
-  
-# Some testing code
-
-sub test
-($doc_top_re=$doc_top='http://www.math.uio.no/') =~ s/(\W)/\\$1/g;
-
-($choped_url_or=$url_origin='http://www.math.uio.no/doc/') =~ 
-  s/^$doc_top_re//;
-
-$url='http://www.math.uio.no/doc/top.html';
-
-print "Relativizing: $url ->\n  ",&smartrel($url),"\n";

@@ -3,10 +3,9 @@ PROPAGANDA:
 See http://www.math.uio.no/~janl/w3mir/ for propaganda.
 
 --------------------------------------------------------------------------
-FAQS:
-
 Q: Where can I get a new version of w3mir?
-A: http://www.math.uio.no/~janl/w3mir/
+A: The w3mir homepage is at http://www.math.uio.no/~janl/w3mir/.
+   W3mir is also distributed on CPAN: http://www.perl.com/
 
 Q: Are there any mailing lists?
 A: Yes, see below.
@@ -18,37 +17,6 @@ A: Yes, if you use w3mir at all you should subscribe to
 
 Q: I found a bug!
 A: See below.
-
-Q: Does it handle cgis?
-A: In a manner of speaking.  The default is to just execute the cgi and
-   save the result.  Instead you can also let all references to cgis
-   be ignored and let the point back to the original site.  This requires
-   use of a config file and directives like:
-     Ignore: *.cgi
-     Ignore: *-cgi
-
-Q: Does it handle imagemaps?
-A: It does handle client side imagemaps, but not server side imagemaps.
-   Server side imagemaps can be handled like cgis, they point back to the
-   original site:
-     Ignore: *.map
-
-Q: Does it handle Applets/java/activeX?
-A: Only if the "codebase" directory is browseable and contains all
-   objects the applet needs, and if all the other URL attributes in the
-   OBJECT/APPLET tag are relative to the codebase.  Support for this
-   will be made more complete in a (near) future release.
-
-Q: Does it handle CSSes (Cascading Style Sheets)?
-A: Limited support, in the sense that the CSSes are retrived but are not
-   examined to find and/or edit URLs.  <style> tags are also handled
-   in the sense that w3mir does not do _anything_ to them, except making
-   sure they are not damaged.  w3mir will be extended to support
-   CSSes more fully in the near future.
-
-Q: Does it handle scripts?
-A: No.   w3mir does not damage scripts, but they are not executed either,
-   and URLs embeded in scripts will not be found.
 
 --------------------------------------------------------------------------
 BUGS:
@@ -128,13 +96,13 @@ Some of these are speculative, some others are very useful.
   references are on a slow link while the mirror is on a fast link.
 - FTP support (easy if through a http style ftp proxy, but is that what
   we want?)
+- SSL support
 - Retrive recursively until N-th order links are reached.  This
   differs siginificantly from directory recursion which we do now.  When
   this is done w3mir should also know the difference between inline and
   external links, inline links should always be retrived.  Trivia question:
   What order is needed to reach every findable document on the web from
   Yahoo?
-- SSL support
 - Integrate with cvs or rcs (or other version controll system) to make
   retriver able to reproduce mirrored site for any given date.
 - Some text processing:  Adding and removing text/sgml comments when suitable

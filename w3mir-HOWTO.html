@@ -1,14 +1,18 @@
+<!doctype html public "-//W3C//DTD HTML 4.0//EN">
 <html>
 <head>
 <title>W3MIR HOWTO</title>
 <style type="text/css">
+<!--
   body { background-color: white }
   h1, h2, h3, b { font-family: sans-serif }
+  .red { color: red }
+-->
 </style>
 <body>
 <h1>W3MIR HOWTO</h1>
 
-<b>Corresponding to version 1.0 of w3mir</b>
+<p><b>Corresponding to version 1.0 of w3mir</b>
 
 <p>W3mir is a all purpose WWW copying and mirroring program.  Its main
 focus is copying complete directory structures keeping your copy
@@ -35,57 +39,57 @@ copy you make with w3mir might in fact be illegal to posses.
 
 <hr>
 
-<a name="contents"><h2>Contents</h2>
+<h2><a name="contents">Contents</a></h2>
 
 <p><a href="#intro">README</a> (You want to read this!  <b
-style="color: red; font-family: serif">Really!</b>)
+class="red">Really!</b>)
 
 <p><b>How do I...</b>
 <ol>
-  <li><a href="#copy">copy a file?</a>
-  <li><a href="#recurse">copy a directory hierarchy?</a>
-  <li><a href="#resources">copy the needed resource files from another
+  <li><p><a href="#copy">copy a file?</a>
+  <li><p><a href="#recurse">copy a directory hierarchy?</a>
+  <li><p><a href="#resources">copy the needed resource files from another
     directory hierarchy?</a>
-  <li><a href="#ignore">avoid copying files I don't want or copy only
+  <li><p><a href="#ignore">avoid copying files I don't want or copy only
     files I want?</a>
-  <li><a href="#rm">remove the files that are no longer on the
+  <li><p><a href="#rm">remove the files that are no longer on the
     original site from the mirror?</a>
-  <li><a href="#depth">limit how deep w3mir will recurse?</a>
-  <li><a href="#multi">copy files from multiple sites?</a>
-  <li><a href="#alias">copy files from one server with several names?</a>
-  <li><a href="#aborted">restart a mirror process after stopping it
+  <li><p><a href="#depth">limit how deep w3mir will recurse?</a>
+  <li><p><a href="#multi">copy files from multiple sites?</a>
+  <li><p><a href="#alias">copy files from one server with several names?</a>
+  <li><p><a href="#aborted">restart a mirror process after stopping it
     prematurely?</a>
-  <li><a href="#enlarge">enlarge or prune an established mirror?</a>
-  <li><a href="#cat">'cat' a file?</a>
-  <li><a href="#list">list URLs in a document?</a>
-  <li><a href="#robots">disable robots.txt obedience?</a>
-  <li><a href="#auth">copy a site that wants user-name and password?</a>
-  <li><a href="#mauth">access a site that wants several different
+  <li><p><a href="#enlarge">enlarge or prune an established mirror?</a>
+  <li><p><a href="#cat">'cat' a file?</a>
+  <li><p><a href="#list">list URLs in a document?</a>
+  <li><p><a href="#robots">disable robots.txt obedience?</a>
+  <li><p><a href="#auth">copy a site that wants user-name and password?</a>
+  <li><p><a href="#mauth">access a site that wants several different
     user-names and passwords?</a>
-  <li><a href="#proxy">use a proxy server?</a>
-  <li><a href="#pauth">authenticate myself to a proxy server?</a>
-  <li><a href="#proxytweak">ensure that the proxy server ...?</a>
-  <li><a href="#batchget">batch get files with w3mir?</a>
-  <li><a href="#cgi">handle CGI?</a>
-  <li><a href="#imap">handle server side image-maps?</a>
-  <li><a href="#java">handle Java and ActiveX?</a>
-  <li><a href="#script">handle java-script and other script languages?</a>
-  <li><a href="#css">handle the other things with 'partial support'?</a>
-  <li><a href="#anon">keep my identity secret?</a>
-  <li><a href="#ns">pretend that I'm using Netscape, Internet
+  <li><p><a href="#proxy">use a proxy server?</a>
+  <li><p><a href="#pauth">authenticate myself to a proxy server?</a>
+  <li><p><a href="#proxytweak">ensure that the proxy server ...?</a>
+  <li><p><a href="#batchget">batch get files with w3mir?</a>
+  <li><p><a href="#cgi">handle CGI?</a>
+  <li><p><a href="#imap">handle server side image-maps?</a>
+  <li><p><a href="#java">handle Java and ActiveX?</a>
+  <li><p><a href="#script">handle java-script and other script languages?</a>
+  <li><p><a href="#css">handle the other things with 'partial support'?</a>
+  <li><p><a href="#anon">keep my identity secret?</a>
+  <li><p><a href="#ns">pretend that I'm using Netscape, Internet
     Explorer or Lynx?</a>
-  <li><a href="#other">do other things?</a>
+  <li><p><a href="#other">do other things?</a>
 </ol>
 
 <hr>
 
-<a name="intro"><h2>README</h2>
+<h2><a name="intro">README</a></h2>
 
 <p>W3mir may be used in two, main, ways:
 
 <ul>
-  <li>To copy something random once.
-  <li>To keep a local mirror of some remote site
+  <li><p>To copy something random once.
+  <li><p>To keep a local mirror of some remote site
 </ul>
 
 <p>To copy something random once there is a high likeliness you can
@@ -112,7 +116,7 @@ to handle a specific problem with a configuration file.
 
 <hr>
 
-<a name="copy"><h3>How do I copy a file?</h3>
+<h3><a name="copy">How do I copy a file?</a></h3>
 
 <p>To copy the top page off www.starwars.com:
 
@@ -123,7 +127,7 @@ slash for server names and directories.
 
 <hr>
 
-<a name="recurse"><h3>How to I copy a directory hierarchy?</h3>
+<h3><a name="recurse">How to I copy a directory hierarchy?</a></h3>
 
 <p>To copy the entire stuff about episode I from www.starwars.com
 which is stored in <tt>http://www.starwars.com/episode-i/</tt> (I don't
@@ -168,8 +172,8 @@ wanted.
 
 <hr>
 
-<a name="resources"><h3>How do I copy the needed resource files from
-another directory hierarchy?</h3>
+<h3><a name="resources">How do I copy the needed resource files from
+another directory hierarchy?</a></h3>
 
 <p>Some sites store their documents in one place, and puts their
 banners, icons and such in a separate directory called
@@ -204,8 +208,8 @@ used will not be retrieved.
 
 <hr>
 
-<a name="ignore"><h3>How do I avoid copying files I don't want or copy
-only files I want?</h3>
+<h3><a name="ignore">How do I avoid copying files I don't want or copy
+only files I want?</a></h3>
 
 <p>To control what files w3mir copies you can use the
 <tt>Ignore:</tt>, <tt>Fetch:</tt>, <tt>Ignore-RE:</tt> and
@@ -222,7 +226,7 @@ interested in you put
 Ignore: *.wav
 </pre>
 
-in the configuration file.  You may ignore as many different filename
+<p>in the configuration file.  You may ignore as many different filename
 patterns as you want.  If you are mirroring a site you want very few,
 specific files from, say all HTML (named
 <em>something</em><tt>.html</tt>) and all Mpeg video files (named
@@ -249,7 +253,7 @@ been established.  Then you add this:
 Fetch: *.mp3
 </pre>
 
-as the third line, making the <tt>Ignore: *</tt> line the forth and
+<p>as the third line, making the <tt>Ignore: *</tt> line the forth and
 last.  Then you must fix all references to .mp3 files within the
 mirror by running w3mfix thus:
 
@@ -257,7 +261,7 @@ mirror by running w3mfix thus:
 w3mfix -editref .mp3
 </pre>
 
-which will edit all references to .mp3 files, thus pointing them the
+<p>which will edit all references to .mp3 files, thus pointing them the
 right place. Ditto when you remove a fetch rule, or add or remove a
 ignore rule.  See the answer about <a href="#enlarge">enlarging and
 pruning</a> mirrors for more examples of using <tt>w3mfix -editme
@@ -275,13 +279,13 @@ not to mirror the comics pages you can put
 Ignore: /ts/
 </pre>
 
-or more precisely
+<p>or more precisely
 
 <pre>
 Ignore: http://www.ifi.uio.no/~janl/ts/
 </pre>
 
-in the configuration file.  If you do this after having established
+<p>in the configuration file.  If you do this after having established
 the mirror you use w3mfix to fix the references:
 
 <pre>
@@ -304,18 +308,18 @@ parenthesis, brackets and braces), and any of the RE modifiers. I.e.,
 Ignore-RE: m/.gif$/i
 </pre>
 
-or
+<p>or
 
 <pre>
 Ignore-RE: m~/.*/.*/.*/~
 </pre>
 
-and so on.  "#" cannot be used as delimiter as it is the comment
+<p>and so on.  "#" cannot be used as delimiter as it is the comment
 character in the configuration file.
 
 <hr>
 
-<a name="depth"><h3>How do I limit how deep w3mir will recurse?</h3>
+<h3><a name="depth">How do I limit how deep w3mir will recurse?</a></h3>
 
 <p>W3mir has no explicit mechanism to limit the depth of recursion,
 but the same result can be achieved with a simple <tt>Ignore</tt> rule:
@@ -332,15 +336,15 @@ do with depth:
 http://www.ifi.uio.no/
 </pre>
 
-so only the surplus slashes are used for depth in this match.  In the
+<p>so only the surplus slashes are used for depth in this match.  In the
 example above the limit is 4 levels from the top.  The
 <tt>Ignore:</tt> rule that is used to limit recursion depth must be
 listed before any <tt>Fetch:</tt> rules to be effective.
 
 <hr>
 
-<a name="rm"><h3>How do I remove the files are no longer on the
-original site from the mirror?</h3>
+<h3><a name="rm">How do I remove the files are no longer on the
+original site from the mirror?</a></h3>
 
 <p>Over time the site you mirror will add files, and quite possibly
 remove files.  Or you might introduce new <tt>Ignore:</tt> rules after
@@ -353,7 +357,7 @@ site.  To remove the old/unwanted files you add 'remove' to the
 
 <hr>
 
-<a name="multi"><h3>How do I copy files from multiple sites?</h3>
+<h3><a name="multi">How do I copy files from multiple sites?</a></h3>
 
 <p>In the answer to the previous question we see how to mirror several
 related sites.  For example, say you want to mirror all my home-pages
@@ -380,7 +384,7 @@ given URL should be considered a starting-point as well:
 Also-quene: http://www.math.uio.no/drift/personer/ math/drift
 </pre>
 
-and, if you want to add an additional starting-point within a already
+<p>and, if you want to add an additional starting-point within a already
 named site:
 
 <pre>
@@ -392,8 +396,8 @@ like.
 
 <hr>
 
-<a name="alias"><h3>How do I copy files from one server with several
-names?</h3>
+<h3><a name="alias">How do I copy files from one server with several
+names?</a></h3>
 
 <p>Simple, the same way you mirror several servers with different
 names.  The math department at University of Oslo has a web server
@@ -418,7 +422,8 @@ document.
 
 <hr>
 
-<a name="enlarge"><h3>How do I enlarge or prune an established mirror?</h3>
+<h3><a name="enlarge">How do I enlarge or prune an established
+mirror?</a></h3>
 
 <p>This only works if you use a configuration file.
 
@@ -432,7 +437,7 @@ add my wife's home-page you add this
 Also: http://www.ifi.uio.no/~annen/ ifi/annen
 </pre>
 
-to the configuration shown earlier.  Then you run w3mfix, and you want
+<p>to the configuration shown earlier.  Then you run w3mfix, and you want
 it to fix all URLs referencing her home-page, the distinguishing
 characteristic is the name 'annen':
 
@@ -440,13 +445,13 @@ characteristic is the name 'annen':
 w3mfix -editref annen
 </pre>
 
-but 
+<p>but 
 
 <pre>
 w3mirx -editref http://www.ifi.uio.no/~annen/
 </pre>
 
-would work too, but it's a lot more to type.  This fixes all the
+<p>would work too, but it's a lot more to type.  This fixes all the
 references to her home-page so that they point to the mirror instead of
 the original pages.
 
@@ -456,7 +461,7 @@ the references to that which you removed.
 
 <hr>
 
-<a name="cat"><h3>How do I 'cat' a file?</h3>
+<h3><a name="cat">How do I 'cat' a file?</a></h3>
 
 <p>W3mir will output the fetched document to it's standard output
 (normally your screen/window) if you specify the '-s' command line
@@ -468,7 +473,7 @@ File-Disposition: stdout
 
 <hr>
 
-<a name="list"><h3>How do I list URLs in a document?</h3>
+<h3><a name="list">How do I list URLs in a document?</a></h3>
 
 <p>To list the URLs in http://www.math.uio.no/:
 
@@ -488,8 +493,8 @@ and you need not use it with <tt>-f</tt>.
 
 <hr>
 
-<a name="aborted"><h3>How to I restart a mirror process after stopping
-it prematurely?</h3>
+<h3><a name="aborted">How to I restart a mirror process after stopping
+it prematurely?</a></h3>
 
 <p>You may just rerun the same command once more.  But that makes
 w3mir request all the documents you have already once more to see if a
@@ -502,10 +507,9 @@ request documents it does not find on your disk.  E.g.:
 <p>This is not something you would normally put in the configuration
 file, but you can, by adding 'only-nonexistent' on the 'Options:' line.
 
-
 <hr>
 
-<a name="robots"><h3>How do I disable robots.txt obedience?</h3>
+<h3><a name="robots">How do I disable robots.txt obedience?</a></h3>
 
 <p>Normally w3mir will read and obey each sites robots.txt file,
 because w3mir wants to be a nice tool.  However robots.txt was
@@ -517,13 +521,14 @@ you want w3mir to disregard the robot rules you can use <tt>-drr</tt>
 Robot-Rules: off
 </pre>
 
-in the configuration file.  The robot exclusion standard is described
-in <a href="http://info.webcrawler.com/mak/projects/robots/norobots.html">http://info.webcrawler.com/mak/projects/robots/norobots.htm</a>.
+<p>in the configuration file.  The robot exclusion standard is
+described in <a
+href="http://info.webcrawler.com/mak/projects/robots/norobots.html">http://info.webcrawler.com/mak/projects/robots/norobots.htm</a>.
 
 <hr>
 
-<a name="auth"><h3>How do I copy a site that wants user-name and
-password?</h3>
+<h3><a name="auth">How do I copy a site that wants user-name and
+password?</a></h3>
 
 <p>This can only be done with a configuration file.  Being able to
 give this on the command-line would give the user-name and password away
@@ -544,8 +549,8 @@ password each time no matter if the server asks or not.
 
 <hr>
 
-<a name="mauth"><h3>How do I access a site that wants several
-different user-names and passwords?</h3>
+<h3><a name="mauth">How do I access a site that wants several
+different user-names and passwords?</a></h3>
 
 <p>If you have several user-names and passwords across
 the server(s) that are copied you need a slightly more advanced
@@ -570,7 +575,7 @@ Auth-password: other-password
 
 <hr>
 
-<a name="proxy"><h3>How do I use a proxy server?</h3>
+<h3><a name="proxy">How do I use a proxy server?</a></h3>
 
 <p>A proxy server has a name, and a port you must use.  On the command
 line you simply specify <tt>-P proxyname:proxyport</tt>.  In the
@@ -596,12 +601,13 @@ want to read them with your browser.  If you also specify
 File-Disposition: forget
 </pre>
 
-it won't even use any space on your disk, w3mir will just process the
-documents looking for URLs and then <em>not</em> save them.
+<p>it won't even use any space on your disk, w3mir will just process
+the documents looking for URLs and then <em>not</em> save them.
 
 <hr>
 
-<a name="pauth"><h3>How do I authenticate myself to a proxy server?</h3>
+<h3><a name="pauth">How do I authenticate myself to a proxy
+server?</a></h3>
 
 <p>Some proxy servers demands a user-name and password to let you use
 them.  W3mir does not support the domain concept in connection with
@@ -615,7 +621,8 @@ HTTP-Proxy-passwd: proxy-password
 
 <hr>
 
-<a name="proxytweak"><h3>How do I ensure that the proxy server ...?</h3>
+<h3><a name="proxytweak">How do I ensure that the proxy server
+...?</a></h3>
 
 <p>HTTP/1.0 proxy servers may be told to not use it's current copy of
 a document if you specify the <tt>-pflush</tt> command-line option.  Or 
@@ -624,7 +631,7 @@ a document if you specify the <tt>-pflush</tt> command-line option.  Or
 Proxy-Options: refresh
 </pre>
 
-in the configuration file.  This is useful if the proxy has an old
+<p>in the configuration file.  This is useful if the proxy has an old
 copy of some document and does not realize that a newer version exists
 on the origin site.  W3mir uses the HTTP/1.0 version of this command
 by default.  You can force w3mir to use the HTTP/1.1 version by adding
@@ -647,7 +654,7 @@ implemented, so you should not count on this to work.
 
 <hr>
 
-<a name="batchget"><h3>How do I batch get files with w3mir?</h3>
+<h3><a name="batchget">How do I batch get files with w3mir?</a></h3>
 
 <p>Normally when fetching files w3mir will process each html (and PDF)
 file to find URLs in them for further retrievals.  This is
@@ -686,7 +693,7 @@ only for batch copying.
 
 <hr>
 
-<a name="cgi"><h3>How do I handle CGI?</h3>
+<h3><a name="cgi">How do I handle CGI?</a></h3>
 
 <p>There is no way w3mir can duplicate the process that happens on the
 Web server when it comes to CGI.  For some CGI programs w3mir can
@@ -707,15 +714,15 @@ file-name if it's a CGI or not.
 <p>When you add ignore rules this causes two things:
 
 <ol>
-<li>W3mir will not retrieve documents matching the rules 
-<li>W3mir will make all references to matching documents point to the
-  site you mirrored from instead of pointing to a non-existent file in
-  the mirror.
+<li><p>W3mir will not retrieve documents matching the rules
+<li><p>W3mir will make all references to matching documents point to
+  the site you mirrored from instead of pointing to a non-existent
+  file in the mirror.
 </ol>
 
 <hr>
 
-<a name="imap"><h3>How do I handle server side image-maps?</h3>
+<h3><a name="imap">How do I handle server side image-maps?</a></h3>
 
 <p>Server side image-maps is yet another thing it's impossible for
 w3mir to relate to.  w3mir simply cannot handle them.  Put ignore
@@ -729,7 +736,7 @@ Ignore: *.map
 
 <hr>
 
-<a name="java"><h3>How do I handle Java and ActiveX?</h3>
+<h3><a name="java">How do I handle Java and ActiveX?</a></h3>
 
 <p>Java and Active X objects are are included in html pages with a
 <tt>&lt;OBJECT&gt;</tt> or <tt>&lt;APPLET&gt;</tt> tag.  W3mir can
@@ -745,8 +752,8 @@ program needs, w3mir does no support this.
 
 <hr>
 
-<a name="script"><h3>How do I handle java-script and other script
-languages?</h3>
+<h3><a name="script">How do I handle java-script and other script
+languages?</a></h3>
 
 <p>W3mir does it's best to pass scripts (java-script, perl-script,
 etc...) embedded in the HTML undamaged.  It cannot, however, extract
@@ -762,8 +769,8 @@ server.
 
 <hr>
 
-<a name="css"><h3>How to I handle the other things with 'partial
-support'</h3>
+<h3><a name="css">How to I handle the other things with 'partial
+support'</a></h3>
 
 <p>W3mir has partial support for CSS.  This means that
 <tt>&lt;style&gt</tt> tags and the enclosed style data are passed
@@ -788,7 +795,7 @@ write it I will use it.
 
 <hr>
 
-<a name="anon"><h3>How do I keep my identity secret?</h3>
+<h3><a name="anon">How do I keep my identity secret?</a></h3>
 
 <p>The HTTP protocol has a header, <tt>User:</tt> which is recommended
 to use by robots, such as w3mir.  Another way to track you is looking
@@ -810,8 +817,8 @@ the help of that mechanism.
 
 <hr>
 
-<a name="ns"><h3>How do I pretend that I'm using Netscape, Internet
-Explorer or Lynx?</h3>
+<h3><a name="ns">How do I pretend that I'm using Netscape, Internet
+Explorer or Lynx?</a></h3>
 
 <p>Some web sites give you different documents when you ask for a
 specific URL based on what browser you use, or even what OS you appear
@@ -840,11 +847,11 @@ on the command line.  In the configuration file you put
 Agent: Mozilla/3.01 (X11; I; Linux 2.0.30 i586)
 </pre>
 
-to pretend w3mir is netscape 3.01.
+<p>to pretend w3mir is netscape 3.01.
 
 <hr>
 
-<a name="other"><h3>How do I do other things?</h3>
+<h3><a name="other">How do I do other things?</a></h3>
 
 <p>This document is by no means a complete list of the things you can
 do with w3mir.  The w3mir man page (<tt>man w3mir</tt> or <tt>perldoc
@@ -856,4 +863,4 @@ get and not to get and under what name to save it on disk.  And a
 couple of other things...
 
 <hr>
-<address>Nicolai Langfeldt 5/2/1998</address>
+<address>Nicolai Langfeldt 7/2/1998</address>
