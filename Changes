@@ -1,3 +1,8 @@
+Fixes in 1.0.4:
+- Better/fixed timeout and incomplete document handling
+- -v now prints LWPs version as well as w3mirs version
+- 
+
 Fixes in 1.0.3: 
 - The -R/remove option to remove files is no longer more destructive
   than intended.

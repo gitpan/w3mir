@@ -232,6 +232,8 @@ use lib '/hom/janl/lib/perl';
 #   janl 12/05/98 -- use ->unix_path instead of ->as_string to derive local
 #		     filename.
 #   janl 25/05/98 -- -B didn't work too well.
+#   janl 09/07/98 -- Redirect to fragment broke us, less broken now -> 1.0.4
+#   janl 24/09/98 -- Better errormessages on errors -> 1.0.5
 #
 # Variable name discipline:
 # - remote, umodified URL.  Variables prefixed 'rum_'
@@ -311,8 +313,8 @@ my $fixopen=0;			# Fixup files open?
 my $indexname='index.html';
 
 my $VERSION;
-$VERSION='1.0.3';
-$w3http::agent = my $w3mir_agent = "w3mir/$VERSION-12-6-1998";
+$VERSION='1.0.5';
+$w3http::agent = my $w3mir_agent = "w3mir/$VERSION-14-9-1998";
 my $iref='(commandline)';	# Initial referer
 
 # Derived settings	
@@ -587,14 +589,19 @@ warn "w3mir: That's all (".$w3http::xfbytes.'+',$w3http::headbytes.
   " bytes of it).\n" unless $verbose<0;
 
 if ($runfix) {
+  eval 'use Config;';
   warn "Running w3mfix\n";
-  system("w3mfix $fixrc");
+  if ($win32) {
+    system($Config{'perlpath'}." w3mfix $fixrc");
+  } else {
+    system("w3mfix $fixrc");
+  }
 }
 
 exit 0;
 
 sub get_document {
-  # Get one document by HTTP ($1).  Save in given filename ($2).
+  # Get one document by HTTP ($1/rum_url_o).  Save in given filename ($2).
   # Possebly returning references found in the document.  Caller must
   # set up referer array, check wantedness and everything else.  We
   # handle authentication here though.
@@ -912,6 +919,8 @@ sub get_document {
       return get_document($new_rum_url,$lf_url);
     }
 
+    # Some redirect to a fragment of another doc...
+    $new_rum_url->frag(undef);
     $new_rum_url=$new_rum_url->as_string;
 
     if ($rum_as_string.'/' eq $new_rum_url) {
@@ -1058,7 +1067,7 @@ sub mirror {
   # files under it in the file hierarchy.
   
   my $rum_url;	# URL of the document we're getting now, defined at main level
-  my $lf_url;	# rum_url after apply
+  my $lf_url;	# rum_url after apply - and 
   my $new_lf_url;
   my @new_rum_urls;
   my $rum_ref;
@@ -1202,7 +1211,7 @@ sub open_fixup {
     die "Could not open $reffile for writing: $!\n";
 
   $fixopen=1;
-  eval 'END { close_fixup; }';
+  eval 'END { close_fixup; 0; }';
 }
 
 
@@ -1380,6 +1389,7 @@ sub find_files {
     $lf_file{$File::Find::name}=$FILEHERE;
   } elsif (-d _) {
     # null
+    # Bug: If an empty directory exists it will not be removed
   } else {
     warn "w3mir: File $File::Find::name has unknown type.  Ignoring.\n";
   }
@@ -1394,23 +1404,22 @@ sub handleerror {
 
   my $msg;
   
+  if ($verbose<0) {
+    $msg="w3mir: ".$rum_url_o->as_string.": ";
+  } else {
+    $msg=": ";
+  }
+
   if ($!) {
     # OS/Network error
-    $msg = "$!";
+    $msg .= "$!";
     $rum_urlstat{$rum_url_o->as_string}=$TERROR;
   } else {
-    if ($verbose<0) {
-      $msg="w3mir: ".$rum_url_o->as_string.":";
-    } else {
-      $msg=": ";
-    }
 
     if ($w3http::result == 100) {
       # Some kind of error connecting or sending request
       $msg .= "Timeout\n";
       $rum_urlstat{$rum_url_o->as_string}=$TERROR;
-    } elsif ($w3http::result == 101) {
-      $msg .= "Could not look up hostname\n";
     } else {
       # Other HTTP error
       $rum_urlstat{$rum_url_o->as_string}=$OTHERERR;
@@ -1744,8 +1753,8 @@ sub want_this {
 
 sub process_tag {
   # Process a tag in html file
-  my $lf_referer = shift;
-  my $base_url = shift;
+  my $lf_referer = shift;	# User argument
+  my $base_url = shift;		# Not used... why not?
   my $tag_name = shift;
   my $url_attrs = shift;
 
@@ -1781,10 +1790,6 @@ sub process_tag {
 
 	# Save new value in the hash
 	$$attrs{$key}=($lf_url_o->rel($lf_referer))->as_string;
-	# Older versions of w3mir does not return fully optimized
-	# relative references.  This can lead to problems if apply
-	# rules change the basename of the URL.  So if 
-	$$attrs{$key} =~ s~[^/]*\#~\#~;
 	print STDERR "New value: ",$$attrs{$key},"\n" if $debug>2;
 
 	# If there is potential information loss save the old value too
@@ -1796,7 +1801,9 @@ sub process_tag {
 
 
 sub version {
+  eval 'require LWP;';
   print $w3mir_agent,"\n";
+  print "LWP version ",$LWP::VERSION,"\n" if defined $LWP::VERSION;
   exit(0);
 }
 
@@ -2336,7 +2343,7 @@ sub usage {
 	-lc		- Convert all URLs (and filenames) to lowercase.
 				This does not work reliably.
 	-p <n>		- Pause n seconds before retriving each doc.
-	-q		- Quiet, turns off informational messages
+	-q		- Quiet, error-messages only
         -rp <n>		- Retry Pause in seconds.
 	-P <server:port>- Use host/port for proxy http requests
         -pflush		- Flush proxy server.

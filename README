@@ -44,12 +44,13 @@ FEATURES (NOT bugs):
 --------------------------------------------------------------------------
 MAIL LISTS, REPORTING BUGS:
 
-Please send bug reports to w3mir-core@usit.uio.no, please include URL
-and command line that triggered the bug.  Ideas (see todo lists
-further down please), questions about usage, general discussions and
-other related talk to w3mir-info@usit.uio.no.  To subscribe to these
-lists email janl@math.uio.no.  The w3mir-core list is intended for
-w3mir hackers only.
+Please send ideas (see todo lists further down please) and bug reports
+to w3mir-core@usit.uio.no, please include URL and command line/config
+file that triggered the bug. w3mir-info@usit.uio.no is mainly used for
+announcing new versions or bugs to w3mir users. You will get more
+information following that list than anywhere else. And it's very low
+volume. To subscribe to these lists email janl@math.uio.no. The
+w3mir-core list is intended for w3mir hackers only.
 
 --------------------------------------------------------------------------
 COPYRIGTHS:

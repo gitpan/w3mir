@@ -264,15 +264,16 @@ mirror by running w3mfix thus:
 w3mfix -editref .mp3
 </pre>
 
-<p>which will edit all references to .mp3 files, thus pointing them the
-right place. Ditto when you remove a fetch rule, or add or remove a
-ignore rule.  See the answer about <a href="#enlarge">enlarging and
-pruning</a> mirrors for more examples of using <tt>w3mfix -editme
-...</tt>
+<p>which will edit all references to .mp3 files, pointing them the
+right place, on your disk. Ditto when you remove a fetch rule, or add
+or remove an ignore rule. See the answer about <a
+href="#enlarge">enlarging and pruning</a> mirrors for more examples of
+using <tt>w3mfix -editme ...</tt>
 
-<p><b>Note:</b> when retrieving only a very limited set of files, as in
-the example above, you <em>must</em> retrieve the html files, because
-how else will w3mir find URLs of files to retrieve?
+<p><b>Note:</b> when retrieving only a very limited set of files, as
+in the example above, you <em>must</em> retrieve the html files,
+because how else will w3mir find URLs of files to retrieve? Only html
+files contain links to other files.
 
 <p>Similarly, you may chose to not mirror whole branches of the
 original site.  If you for example mirror my home-pages, and you decide
@@ -407,10 +408,10 @@ like.
 names?</a></h3>
 
 <p>Simple, the same way you mirror several servers with different
-names.  The math department at University of Oslo has a web server
+names. The math department at University of Oslo has a web server
 known under two names: math-www.uio.no and www.math.uio.no, and both
-names are used in documents stored on it.  To copy the whole server,
-one time only give these URL and Also lines:
+names are used in documents stored on it. To copy the whole server,
+one time only, give these URL and Also lines:
 
 <pre>
 URL: http://www.math.uio.no/ .
@@ -519,10 +520,10 @@ file, but you can, by adding 'only-nonexistent' on the 'Options:' line.
 <h3><a name="robots">How do I disable robots.txt obedience?</a></h3>
 
 <p>Normally w3mir will read and obey each sites robots.txt file,
-because w3mir wants to be a nice tool.  However robots.txt was
-designed with something slightly different than w3mir in mind, so if
-you want w3mir to disregard the robot rules you can use <tt>-drr</tt>
-(Disable Robot Rules) on the command-line, or the line
+because w3mir wants to be a nice tool. However robots.txt was designed
+with something slightly different than the normal use of w3mir in
+mind, so if you want w3mir to disregard the robot rules you can use
+<tt>-drr</tt> (Disable Robot Rules) on the command-line, or the line
 
 <pre>
 Robot-Rules: off
@@ -534,6 +535,9 @@ href="http://info.webcrawler.com/mak/projects/robots/norobots.html">http://info.
 
 <hr>
 
+<h3><a name="corrupt">How do I stop w3mir from corrupting binary
+files?</a></h3>
+     
 <p>During the normal course of events w3mir converts the newline
 format of fetched HTML documents to your systems native newline
 format. On Unix a newline consists of a single ASCII LF character, on
@@ -555,7 +559,7 @@ wrong MIME type
 command line, or
 
 <pre>
-Option: no-newline-conv
+Options: no-newline-conv
 </pre>
 
 in the configuration file.
@@ -615,20 +619,24 @@ Auth-user: other-me
 Auth-password: other-password
 </pre>
 
+W3mir will tell you what the name of the realm is if it is unable to
+authenticate itself with the server. You may also use '*' as the realm
+name if you only copy documents from one realm on that server.
+
 <hr>
 
 <h3><a name="proxy">How do I use a proxy server?</a></h3>
 
-<p>A proxy server has a name, and a port you must use.  On the command
-line you simply specify <tt>-P proxyname:proxyport</tt>.  In the
-configuration file you put this:
+<p>On some secured sites you have to access the Internet through proxy
+servers to get out of the internal network.
+
+<p>A proxy server has a host name, and a port you must use. On the
+command line you simply specify <tt>-P proxy-host-name:proxy-port</tt>. In
+the configuration file you put this:
 
 <pre>
-HTTP-Proxy: proxyname:proxyport
+HTTP-Proxy: proxy-host-name:proxyport
 </pre>
-
-<p>On some secured sites you have to access the Internet through proxy
-servers to get out.
 
 <p>The main advantage of working through proxy servers other than
 security is that you take advantage of any caching the proxy server
@@ -725,13 +733,12 @@ for URLs.
 for mirroring will probably lead to a unstable mirror, because w3mir
 does not get a chance to manipulate the URLs in the documents as it
 needs to be able to maintain a mirror later, and most important of
-all, w3mir needs all html files to contain a &lt;HTML&gt; tag, which
-it inserts itself if it's missing, to be able to recognize a HTML file
-as a HTML file when examining it on disk.  When running with the
-<tt>-B</tt> switch w3mir will insert no such tags and thus must rely
-on the original documents author to be nice and insert it in the first
-place.  In other words, <b>don't use <tt>-B</tt> for mirroring</b>,
-only for batch copying.
+all, w3mir needs all html files to contain a &lt;HTML&gt; tag to be
+able to recognize a HTML file as a HTML file. When running with the
+<tt>-B</tt> switch w3mir will not ensure the presence of this and thus
+we must rely on the original documents author to be nice. This is a
+bad bet. In other words, <b>don't use <tt>-B</tt> for recursive
+mirroring</b>, only for batch copying/mirroring of single documents.
 
 <hr>
 
@@ -790,7 +797,7 @@ it's impossible to extract the name of the resources the program needs
 in any reliable way.
 
 <p>HTML4 supports a attribute that enumerates the resources the
-program needs, w3mir does no support this.
+program needs, w3mir is not able to use this yet.
 
 <hr>
 
@@ -905,4 +912,4 @@ get and not to get and under what name to save it on disk.  And a
 couple of other things...
 
 <hr>
-<address>Nicolai Langfeldt 2/5/1998</address>
+<address>Nicolai Langfeldt 9/7/1998</address>

@@ -405,7 +405,7 @@ sub parse_cfg_file {
     }
 
     if ($key eq 'quene') {
-      root_quene($value);
+      # root_quene($value);
       next;
     }
 

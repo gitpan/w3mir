@@ -219,7 +219,7 @@ my(%verbatim) = (
 sub gettoken {
   # Get one token from the argument, removing it from the argument.
   # BUG: There should be whitespace at the end of the examined string.
-  my($c,$token,$rest);
+  my($c,$token,$i);
   
   # Skip whitespace and newlines
   return '' unless defined(@_) && defined($_[0]);
@@ -230,9 +230,13 @@ sub gettoken {
   $c = substr($_[0],0,1);
   substr($_[0],0,1)='';
   
-  if ($c eq '"') {		# Quoted material
-    ($token,$rest)=split('"',$_[0],2);
-    $_[0]=$rest;
+  if ($c eq '"' || $c eq "\'") { # Quoted material
+    $i=index($_[0],$c);
+    # End-quote missing, just gobble the rest of the doc
+    $i=length($_[0]) if $i == -1;
+    # Extract and remove token
+    $token=substr($_[0],0,$i);
+    substr($_[0],0,$i+1)='';
   } elsif ($c eq '=') {
     $token='=';
   } else {			# Non-quoted material, ends in whitespace or =
@@ -240,7 +244,7 @@ sub gettoken {
     $_[0] = $&.$';
     $token=$c.$`;
   }
-  #    print "Token: '$token'\t\tRest: '",$_[0],"'\n";
+  # print "Token: '$token'\t\tRest: '",$_[0],"'\n";
   return $token;
 }
 
@@ -449,8 +453,8 @@ sub process {
 	  } else {
 	    $baseurl=$attrval{'HREF'};
 	  }
-	  # Get rid of the HREF attribute.  Netscape 4.0 puts stuff into
-	  # BASE that is not even found in the HTML 4.0 spec.
+	  # Get rid of the HREF attribute.  Netscape 4.0 puts (other) stuff
+	  # into BASE that is not found in the HTML 4.0 spec.
 	  delete $attrval{'HREF'};
 	  print STDERR "\nBase tag: $baseurl\n" if $debug;
 	}
@@ -585,8 +589,8 @@ sub process {
 	foreach $attr (keys %attrval) {
 	  $newdoc.=' '.$attr;
 	  if (defined($cont=$attrval{$attr})) {
-	    $Q='';
-	    $Q='"' if ($cont =~ m/[^\w\d]/ || $cont eq '');
+	    $Q='"';
+	    $Q="'" if $cont =~ m/\"/;
 	    $newdoc.='='.$Q.$cont.$Q;
 	  }
 	}

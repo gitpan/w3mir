@@ -1,7 +1,7 @@
 # -*- perl -*-
 # w3http.pm	--- send http requests, janl's 12" mix for w3mir
 #
-$VERSION=1.0.19;
+$VERSION=1.0.20;
 #
 # This implements http/1.0 requests.  We'll have problems with http/0.9
 # This is in no way specific to w3mir.
@@ -32,8 +32,12 @@ $VERSION=1.0.19;
 # Variables to examine after a query
 # $w3http::document: The document returned by the query, if any.
 # $w3http::doclen: The length of the document
-# $w3http::result: The numerical http result code
-# $w3http::restext: The english(?) http result
+# $w3http::result: The numerical http result code.  It may take these values:
+# - Normal HTTP reply codes
+# -  99: Permanent(?) error: see $! or $restext (host lookup failure, 
+# 		connection refused...)
+# - 100: Transient error: Timeout/connection broken
+# $w3http::restext: The english(?) HTTP result or w3http generated message
 # $w3http::header: The http header returned.
 # $w3http::plaintexthtml: 1 if this doc is non-content-encoded text/html
 #	(as opposed to content-encoding: compressed content-type: text/html
@@ -104,13 +108,16 @@ $VERSION=1.0.19;
 #			Greg Lindhorst (gregli@microsoft.com)
 #                   -- whoami does not exist on win32, hardwire a default
 #			value (unknown) (also Greg L.) -> 1.0.15
-#     janl 01/22/97 -- Proxy authentication as outlined by Christian Geuer
-#     janl 02/20/97 -- Complex 'content-type' headers handled. -> 1.0.17
-#     janl 04/20/97 -- Only newline convert text/html, everything else is
+#     janl 01/22/98 -- Proxy authentication as outlined by Christian Geuer
+#     janl 02/20/98 -- Complex 'content-type' headers handled. -> 1.0.17
+#     janl 04/20/98 -- Only newline convert text/html, everything else is
 #			handled as binary. -> 1.0.18
-#     janl 12/05/97 -- Store tmpfile in its final destination directory
+#     janl 12/05/98 -- Store tmpfile in its final destination directory
 #			avoiding asking movefile move it across filesystems.
 #			-> 1.0.19
+#     janl 01/08/98 -- Timeout fix from Michael Gusev, also flag short doc
+#			as error.
+#     janl 24/09/98 -- Better error handling -> 1.0.20
 
 package w3http;
 
@@ -218,6 +225,9 @@ $FREEHEAD= 999;			# Freeform header, one line.  Arg: header
 
 sub query {
   # Build and send a HTTP query.  And also receive response - janl 95/09/18
+  #
+  # Return codes: 0 if it didn't work.  1 if it did work.
+  # HTTP style result code in w3http::$result and message in w3http::$restext
   
   # We do next to no argument type checking btw.
   
@@ -225,10 +235,10 @@ sub query {
   my($start,$wantbytes,$thataddr,$err,$headb,$tmpf,$ldoc,$nouser,$q,$accept);
   my($origreq,$req_o,$plaintext);
   
-  # This is a internal error reply code.
+  # Something ought to be said
   $result=99;
-  $nouser=0;
   $restext='w3http: internal error';
+  $nouser=0;
   
   if ($version ne '1.0') {
     warn "Unknown HTTP version $version, no request sent\n";
@@ -363,7 +373,7 @@ sub query {
 
   # Check if lookup failure, return
   if (!defined($thataddr)) {
-    $result=101;
+    $restext='Host lookup failure';
     return;
   }
 
@@ -393,8 +403,13 @@ sub query {
   alarm($timeout) if $hasAlarm;
   
   # We have, in fact, received SIGPIPE on this line:
-  send(FS,$query,0) || return &resetsign;
-  return &resetsign if $chime;
+  send(FS,$query,0) or return &resetsign;
+
+  if ($chime) {
+    $result=100;
+    $restext='timeout sending query';
+    return &resetsign;
+  }
   
   $header='';
   $document='';
@@ -456,8 +471,7 @@ sub query {
   }
   
   if (length($header)==0) {
-    $result=99;
-    $restext='The HTTP reply header is empty!';
+    $restext='the HTTP reply header is empty!';
     return &resetsign;
   }
   
@@ -535,7 +549,8 @@ sub query {
       alarm(0) if $hasAlarm;
       
       if ($chime) {
-	warn "Timeout while waiting for HTTP reply to finish\n";
+	$result=100;
+	$restext='timeout fetching document';
 	$!=0;
 	if ($save) {
 	  unlink($tmpf) || 
@@ -578,25 +593,24 @@ sub query {
 
     close(FS);  # Close socket completely
     
-    # warn "XFB: $xfbytes, DL: $doclen\n";
+    if ($wantbytes &&
+	$wantbytes != $doclen) {
+      $result=100;
+      $restext='document transfer error';
+      $restext='document was incomplete' if ($wantbytes > $doclen) ;
+      if ($save) {
+	unlink($tmpf) || warn "Could not unlink $tmpf: $!\n";
+      }
+      return &resetsign;
+    }
     
+    # warn "XFB: $xfbytes, DL: $doclen\n";
     if ($save) {
       close(SAVE);
       &main::movefile($tmpf,$saveto);
     }
     
-    # janl: Paranoia check. This going off has mostly been a
-    # indication of programming error on my part..
-    # note that this is now inside a resultcode check.
-    if ($wantbytes &&
-	$wantbytes != $doclen) {
-      warn "Content length ($doclen) differs from length declared in header ($wantbytes)\n";
-      # There is a definite posibility that if the number of bytes is
-      # not as high as it should be we have a transfer error on our
-      # hands and should set status to 100.  This might be esp. true
-      # for transfers thru proxy servers.
-    }
-    
+
     # If this is a non-encoded text file and we're supposed to convert
     # foreign newlines then we do it. It would be faster to do this
     # with each chunk of input in the input loop, but this gives us
@@ -698,6 +712,7 @@ sub last_modified {
 
 
 sub timeout {
+  # Set timeout flag.  The using procedure has to set other result codes.
   $chime=1;			# When this is 1 then the alarm has gone off
 }
 
@@ -710,6 +725,7 @@ sub ignore {
 sub resetsign {
   return 0 if !defined($savALRM);
   $SIG{'ALRM'}=$savALRM;
+  undef $savALRM;
 #  $SIG{'PIPE'}=$savPIPE;
   return 0;
 }
