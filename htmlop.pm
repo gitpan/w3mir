@@ -1,5 +1,6 @@
 # -*-perl-*-
 # htmlop.pl version 0.2.0: Do operations on html documents.
+$VERSION=0.2.0;
 #
 # Original source from Bjørn Borud, without it I would not have atempted
 # this. In this incarnation it bears no resemblance to Bjørns code.

@@ -1,6 +1,7 @@
 # -*- perl -*-
 # w3http.pm	--- send http requests, janl's 12" mix for w3mir
 #	version 1.0.17
+$VERSION=1.0.17;
 #
 # This implements http/1.0 requests.  We'll have problems with http/0.9
 # This is in no way specific to w3mir.
@@ -105,7 +106,7 @@
 #                   -- whoami does not exist on win32, hardwire a default
 #			value (unknown) (also Greg L.) -> 1.0.15
 #     janl 01/22/97 -- Proxy authentication as outlined by Christian Geuer
-#     janl 02/20/97 -- Complex 'content-type' headers handled.
+#     janl 02/20/97 -- Complex 'content-type' headers handled. -> 1.0.17
 
 package w3http;
 

@@ -18,6 +18,9 @@ A: Yes, if you use w3mir at all you should subscribe to
 Q: I found a bug!
 A: See below.
 
+Q: How do it...
+A: There is a w3mir-HOWTO.html file in the distribution.  Read it.
+
 --------------------------------------------------------------------------
 BUGS:
 
@@ -76,14 +79,7 @@ CREDITS:
 --------------------------------------------------------------------------
 TODO LIST:
 
-Currently I'm preparing for version 1 of w3mir.
-
-* TODO for version 1:
-
-- Fix bugs discovered.
-- Release 1.0
-
-* TODO, after version 1:
+* TODO, version 1.1:
 
 Some of these are speculative, some others are very useful.
 
@@ -127,4 +123,3 @@ Some of these are speculative, some others are very useful.
 * If perl gets threads:
 - Make the retrival and analysis engines separate threads, and have each
   one retrival thread pr. method/server/port and do paralell retrivals.
-

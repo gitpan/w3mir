@@ -2,6 +2,7 @@
 #
 # w3pdfuri.pm -- extract uris from a adobe acrobat pdf file.
 #     version 0.1
+$VERSION=0.1;
 #
 # Assumptions:
 # - File starts with %PDF

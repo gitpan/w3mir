@@ -110,7 +110,7 @@ use URI::URL;
 use strict;
 
 my $VERSION;
-$VERSION='0.6';
+$VERSION='0.6.1';
 
 my $debug=0;			# Not debugging
 my $verbose=0;
@@ -331,12 +331,8 @@ sub parse_cfg_file {
       if ($value =~ m/^(.+)\s+(.+)/i) {
 	my ($rum_url_o,$lf_dir,$rum_reurl,$rum_rebase);
 	# Two arguments.
-	if ($key eq 'also-quene') {
-	  $rum_url_o=root_quene($1);
-	} else {
-	  $rum_url_o=url $1;
-	  $rum_url_o->host(lc $rum_url_o->host);
-	}
+	$rum_url_o=url $1;
+	$rum_url_o->host(lc $rum_url_o->host);
 	# The last is a directory, it must end in /
 	$lf_dir=$2;
 	$lf_dir.='/' unless $lf_dir =~ m~/$~;
@@ -395,7 +391,7 @@ sub parse_cfg_file {
 
 
     if ($key eq 'apply') {
-      unless ($value =~ /^s(.).*\1.*\1[gimosx]*$/) {
+      unless ($value =~ /^s(.).*\1.*\1[gimosxe]*$/) {
 	print STDERR
 	  "w3mfix: '$value' is not a recognized regular expression\n";
 	exit 1;

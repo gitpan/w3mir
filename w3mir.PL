@@ -301,8 +301,8 @@ my $fixopen=0;			# Fixup files open?
 my $indexname='index.html';
 
 my $VERSION;
-$VERSION='1.0pre3';
-$w3http::agent = my $w3mir_agent = "w3mir/$VERSION-20-2-1998";
+$VERSION='1.0';
+$w3http::agent = my $w3mir_agent = "w3mir/$VERSION-18-3-1998";
 my $iref='(commandline)';	# Initial referer
 
 # Derived settings	
@@ -921,7 +921,7 @@ sub get_document {
     &handleerror;
     print STDERR "Was refered from: ",
       join(',',@{$rum_referers{$rum_url_o->as_string}}),
-      "\n";
+      "\n" if defined(@{$rum_referers{$rum_url_o->as_string}});
     return ();
   }
 
@@ -1640,10 +1640,15 @@ sub add_referer {
   # already there.
   # Don't mail me if you (only) think this is a bit like a toungetwiser:
 
+  # Don't remember referers if BOTH fixup and referer header is disabled.
+  return if $fixup==0 && $do_referer==0;
+
   my($rum_referee,$rum_referer) = @_ ;
+  my $re_rum_referer;
 
   if (exists($rum_referers{$rum_referee})) {
-    if (!grep(m/^$rum_referer$/,@{$rum_referers{$rum_referee}})) {
+    $re_rum_referer=quotemeta $rum_referer;
+    if (!grep(m/^$re_rum_referer$/,@{$rum_referers{$rum_referee}})) {
       push(@{$rum_referers{$rum_referee}},$rum_referer);
       # warn "$rum_referee <- $rum_referer pushed\n";
     } else {
@@ -2034,7 +2039,7 @@ sub parse_cfg_file {
 
 
     if ($key eq 'apply') {
-      unless ($value =~ /^s(.).*\1.*\1[gimosx]*$/) {
+      unless ($value =~ /^s(.).*\1.*\1[gimosxe]*$/) {
 	print STDERR
 	  "w3mir: '$value' is not a recognized regular expression\n";
 	exit 1;
@@ -2210,7 +2215,7 @@ sub insert_at_start {
   # janl: The second arg must be a reference to a scalar.
   my( $str, $text_ref ) = @_;
   my( @possible ) =("<BODY.*?>", "</HEAD.*?>", "</TITLE.*?>", "<HTML.*?>" );
-  my( $f, $done);
+  my( $f, $done );
   
   $done=0;
   @_=@possible;
@@ -2562,10 +2567,11 @@ extra output for debugging purposes.
 
 =item B<-abs>
 
-Force all URLs to be absolute.  If
-F<http://www.ifi.uio.no/~janl/index.html> references foo.html the
-referense is absolutified into F<http://www.ifi.uio.no/~janl/foo.html>
-
+Force all URLs to be absolute.  If you retrive
+F<http://www.ifi.uio.no/~janl/index.html> and it references foo.html
+the referense is absolutified into
+F<http://www.ifi.uio.no/~janl/foo.html>.  In other words, you get
+absolute references to the origin site if you use this option.
 
 =back
 
