@@ -1,3 +1,41 @@
+This file contains installation instructions for two different ports
+of Perl to win32.  One port is known as the 'ActivePerl' port, the
+other is known as 'the GS port'.
+
+********************************* ActivePerl **********************************
+
+This was written and submitted by Roland Bauer.  Thanks.  I have
+edited them slightly.
+
+How to install w3mir on Win95/AS-port (April 1999):
+===================================================
+
++ get and install winzip from http://www.winzip.com/
++ get and install ActivePerl (now Build 509) from http://www.activestate.com/
++ get nmake.exe from 
+  ftp://ftp.microsoft.com/Softlib/MSLFILES/nmake15.exe
+  (or set switch make=nmake to make=dmake in Config.pm
+  and get dmake from GS port)
+
++ perl makefile.pl
++ nmake
++ nmake install
+
++ perl w3mir -h
++ perl w3mir http://xx.zz.zz/dir/
+
+
+Caveats:
+========
+
++ archive 1.0.6 from CPAN seems to be corrupted
+
++ &mkdir does not seem to work with dos-paths
+like 'D:/DIR1/DIR2'
+(so it is not possible to save to another harddisk)
+
+*********************************** GS Perl ***********************************
+
 These win32 installation instructions were written by Paul Hsiao and
 slightly edited by me. My thanks to Paul. It was current as of
 22-May-1998.
@@ -19,7 +57,7 @@ PERL DOWNLOAD INSTRUCTIONS
     Perl interpreter and LWP library extensions in order for it to run. 
     This software can be obtained from:
  
-                http://www-personal.umich.edu/~gsar/
+                ftp://sunsite.uio.no/pub/languages/perl/CPAN/ports/win32/Standard
  
     From this URL, select perl5.00402-bindist04-bc.tar.gz and download
     to your PC into a folder of your choice.  In the folder, run WinZip

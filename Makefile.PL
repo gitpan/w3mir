@@ -8,9 +8,11 @@
 #   by installing libwww-perl and mime-base64 for the user before
 #   installing w3mir.  Cool eh?  That would require some changes.
 #
-# BUG: make clean does not remove 'w3mir' itself.  It must.
-#
 # - janl 18/4/1997
+#
+# 19/04/99 janl: Added 'clean' target on tip from  Lupe Christoph
+#	and LWP max-version check to the LWP detection.
+# 
 
 # First just write the Makefile
 use ExtUtils::MakeMaker;
@@ -19,6 +21,7 @@ WriteMakefile(
     NAME	=> 'w3mir',
     VERSION_FROM => 'w3mir.PL', # finds $VERSION
     EXE_FILES => [ 'w3mir', 'w3mfix' ],
+    clean => { FILES => 'w3mir w3mfix' },
     dist => { COMPRESS => 'gzip -f9', SUFFIX => 'gz' },
 );
 
@@ -47,10 +50,11 @@ libwww seems to be missing.
 ';
   $missing_modules++;
   sleep(2);
-} elsif ($LWP::VERSION<5.08) {
+} elsif ($LWP::VERSION<5.08 or $LWP::VERSION>=5.40) {
   print ' failed
 
-libwww is version ',$LWP::VERSION,', I need version 5.08 or later.
+libwww is version ',$LWP::VERSION,', I need version 5.08 to 5.39.
+Please see the INSTALL file.
 
 ';
   $missing_modules++;

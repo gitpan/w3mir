@@ -71,7 +71,6 @@ CREDITS:
   everything.
 - Chris Szurgot: Adapting to win32, good ideas and code contribs, 
   Debugging.  And criticism.
-- Ed Jordan: patch, debugging.
 - Rik Faith: Uses w3mir extensively, not shy about complaining and
   commenting and suggesting.  
 - The libwww-perl author(s) that made adding some new featres
@@ -107,7 +106,7 @@ Some of these are speculative, some others are very useful.
 - Integrate with cvs or rcs (or other version controll system) to make
   retriver able to reproduce mirrored site for any given date.
 - Some text processing:  Adding and removing text/sgml comments when suitable
-  options and tags are found.  Suggested by Ed Jordan.
+  options and tags are found.
 - Put retrival date-stamps as comments in html files, to document the when
   and how of how this document was retrived.
 - Example: If you're mirroring a site primarily to get to the papers, but

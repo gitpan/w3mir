@@ -1,7 +1,7 @@
 # -*- perl -*-
 # w3http.pm	--- send http requests, janl's 12" mix for w3mir
 #
-$VERSION=1.0.21;
+$VERSION=1.0.22;
 #
 # This implements http/1.0 requests.  We'll have problems with http/0.9
 # This is in no way specific to w3mir.
@@ -122,6 +122,7 @@ $VERSION=1.0.21;
 #     bkw  17/12/98 -- Fixed problem with tempfile-generation when
 #                      running in forget-mode (-f)
 #     janl 05/01/99 -- Referer: dropped if argument not true -> 1.0.21
+#     janl 13/04/99 -- Added workaround for broken win32 perl resolving.
 
 package w3http;
 
@@ -357,6 +358,13 @@ sub query {
   
   # If we're using proxy then set up things...
   print STDERR "\nQUERY:\n",$query,"---\n" if $debug>=2;
+
+  # win32 fix: this should be added in case of troubles with
+  # gethostbyname. possible reason: nameserver down?
+  if ($host =~ /^\d+(\.\d+){3}$/) {
+    # in case gethostbyname will not work ... ;-)
+    $address{$host} = pack 'C4', (split /\./, $host);
+  }
   
   # Find out who to ask, check if we know already
   if (exists($address{$host})) {

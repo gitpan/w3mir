@@ -1,6 +1,6 @@
 # -*-perl-*-
 # htmlop.pl: Do operations on html documents.
-$VERSION=0.2.2;
+$VERSION=0.2.4;
 #
 # Original source from Bjørn Borud, without it I would not have atempted
 # this. In this incarnation it bears no resemblance to Bjørns code.
@@ -58,6 +58,9 @@ $VERSION=0.2.2;
 #		     document -> 0.2.  Thanks to Rune Frøysa who taunted me.
 # janl	  09/04/98 - More tolerant about what constitutes a newline -> 0.2.1
 # janl	  09/05/98 - Export %isdir -> 0.2.2
+# janl    13/04/99 - Remove leading /../ sequences in path component in
+#		     ABS code. -> 0.2.3
+# janl    28/05/99 - The code was buggy, now it's not. -> 0.2.4
 
 package htmlop;
 
@@ -80,7 +83,7 @@ my $choped_url_or;
 # returned.  No more than one document will be returned by one
 # invocation of htmlop.
 
-$ABS = 1;			# Absolutify urls. Arg: Origin, The
+$ABS = 1;			# Absolutify urls. Arg: Origin. The
                                 # ABS function absolutifies URLS,
                                 # assuming they are relative to the
                                 # argument.
@@ -403,6 +406,7 @@ sub process {
   my($prefix);
   my($fun);		# Function to apply to url
   my($verbatim)='';
+  my($url_o,$path);		# URL object Used in ABS to remove leading ..
 
   # Welcome to the machine
 
@@ -477,9 +481,16 @@ sub process {
 	  print STDERR 'ABS: ',$origin->as_string,"\n" if $debug;
 	  next unless defined($urls{$tagname});
 	  foreach $attr (@{$urls{$tagname}}) {
-	    $attrval{$attr}=
-	      (url($attrval{$attr})->abs($origin,1))->as_string
-		if defined($attrval{$attr});
+	    if (defined($attrval{$attr})) {
+	      # Ugly: Remove leading /../ sequences in path component
+	      $url_o=url($attrval{$attr})->abs($origin,1);
+	      if (defined($path=$url_o->path)) {
+		# mailto: URLs does not have path components
+		$path =~ s~/\.\.(?=/)~~g;
+		$url_o->path($path);
+	      }
+	      $attrval{$attr}=$url_o->as_string;
+	    }
 	  }
 	} elsif ($arg == $REL) {
 	  $origin=$_[$i++];
@@ -557,11 +568,11 @@ sub process {
 	      if defined($attrval{$attr});
 	  }
 	} elsif ($arg == $TAGCALLBACK) {
-	  warn "TAGCALLBACK;\n" if $debug;
 	  $fun=$_[$i++];
 	  $arg=$_[$i++];
+	  warn "TAGCALLBACK($tagname);\n" if $debug;
 	  &$fun($arg,$baseurl,$tagname, 
-		(defined($urls{$tagname})? $urls{$tagname}: undef),
+		(defined($urls{$tagname})?($urls{$tagname}):undef),
 		\%attrval);
 	} else {
 	  print STDERR "Internal error. opcode: $arg, i: $i, args: ",

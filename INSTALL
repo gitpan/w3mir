@@ -11,6 +11,8 @@ skip this part for now.
 - Get libwww-perl from CPAN 
   (http://www.perl.com/CPAN/modules/by-module/WWW/).  W3mir does not work
   with LWP 5.40 and later versions.  Please get an earlier version.
+  It also does not work with the new URI package.  Use the URI package
+  enclosed in the older LWP.
 
 - Unpack it:
 
@@ -33,6 +35,13 @@ skip this part for now.
     perl Makefile.PL PREFIX=/some/dir
 
   /some/dir could be ~ (as in your home directory).
+
+  IF you are installing an old LWP just for w3mir you can install both
+  the old LWP, the Base64 module and w3mir in a special PREFIX
+  separate from your usual install PREFIX.  This ensures that w3mir will
+  access the older version of LWP and that other software will access
+  the newer version.  If you do this make sure you install all of LWP,
+  Base64 and w3mir with the same PREFIX.
 
   This step might produce some complaints;  A standard perl
   installation will typically get messages about missing these
@@ -105,4 +114,4 @@ w3mir should now be installed correctly.  And if it's installed in
 your path you can even run it.  If you use csh or tcsh you want to run
 'rehash' before the shell will find it.
 
-05/01/98 - Nicolai Langfeldt
+1999/04/14 - Nicolai Langfeldt

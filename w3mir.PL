@@ -236,6 +236,7 @@ use lib '/hom/janl/lib/perl';
 #   janl 24/09/98 -- Better errormessages on errors -> 1.0.5
 #   janl 21/11/98 -- Fix errormessages better.
 #   janl 05/01/99 -- Drop 'Referer: (commandline)'
+#   janl 13/04/99 -- Add initial referer to root urls in batch mode.
 #
 # Variable name discipline:
 # - remote, umodified URL.  Variables prefixed 'rum_'
@@ -316,9 +317,9 @@ my $fixopen=0;			# Fixup files open?
 my $indexname='index.html';
 
 my $VERSION;
-$VERSION='1.0.6';
-$w3http::agent = my $w3mir_agent = "w3mir/$VERSION-05-01-1998";
-my $iref='';	# Initial referer.  Must evaluate to false
+$VERSION='1.0.8';
+$w3http::agent = my $w3mir_agent = "w3mir/$VERSION-1999-05-28";
+my $iref='';			# Initial referer.  Must evaluate to false
 
 # Derived settings	
 my $mine_urls=0;		# Mine URLs from documents?
@@ -570,11 +571,15 @@ if ($r) {
       # Get URLs from <STDIN>
       while (<STDIN>) {
 	chomp;
+	&add_referer($_,$iref);
 	batch_get($_);
       }
     } else {
       # Get URLs from commandline
       my $url;
+      foreach $url (@root_urls) {
+	&add_referer($url,$iref);
+      }
       foreach $url (@root_urls) {
 	batch_get($url);
       }
@@ -1814,6 +1819,7 @@ sub version {
   eval 'require LWP;';
   print $w3mir_agent,"\n";
   print "LWP version ",$LWP::VERSION,"\n" if defined $LWP::VERSION;
+  print "Perl version: ",$],"\n";
   exit(0);
 }
 
